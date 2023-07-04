@@ -184,6 +184,14 @@ pub async fn sync(indexer_config: IndexerConfig) {
                 }
             }
 
+            if !mapping
+                .decode_abi_items
+                .iter()
+                .any(|item| topic_in_bloom(abi_item_to_topic_id(item), rpc_bloom))
+            {
+                continue;
+            }
+
             process_block(
                 &reth_db,
                 &mut csv_writers,
