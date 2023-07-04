@@ -1,6 +1,6 @@
 # reth-indexer
 
-reth-indexer reads directly from the reth db and indexes the data into a postgres database with a simple config file and no extra setup.
+reth-indexer reads directly from the reth db and decodes and indexes the data into a postgres database with a simple config file and no extra setup.
 
 <img src="./assets/demo.gif" />
 
