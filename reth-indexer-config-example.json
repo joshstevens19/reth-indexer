@@ -2,17 +2,13 @@
   "rethDBLocation": "/home/ubuntu/.local/share/reth/mainnet/db",
   "csvLocation": "/tmp",
   "fromBlockNumber": 17569693,
-  "toBlockNumber": 17569794,
+  "toBlockNumber": 17570693,
   "postgres": {
     "dropTableBeforeSync": true,
     "connectionString": "postgresql://postgres:password@localhost:5432/reth_indexer"
   },
   "eventMappings": [
     {
-      "filterByContractAddress": [
-        "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-      ],
       "syncBackRoughlyEveryNLogs": 1000,
       "decodeAbiItems": [
         {

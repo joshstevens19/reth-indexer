@@ -1,7 +1,3 @@
-## TODO:
-
-- benchmarks
-
 # reth-indexer
 
 reth-indexer reads directly from the reth db and indexes the data into a postgres database with a simple config file and no extra setup.
@@ -10,13 +6,17 @@ reth-indexer reads directly from the reth db and indexes the data into a postgre
 
 ## Disclaimer
 
-This is an R&D project and most likely has missing features and bugs. Also most likely plenty of optimistations we can do in rust land. PRs more then welcome.
+This is an R&D project and most likely has missing features and bugs. Also most likely plenty of optimistations we can do in rust land. PRs more then welcome to make this even faster and better.
 
-## Why - Need to edit
+## Why
 
-If you want to get data from the chain you tend to have to use a provider like infura or alchemy, it can get expensive with their usage plans if you are trying to just get event data. On top of that pulling huge amount of data fast is not possible freely. Over the wire JSONRPC calls adds a lot of overhead and are slow. You have the TLS handshake, you may be calling a API which is located the other side of the world to you, it adds TCP connections to your backend and scaling this is not easy mainly because of how over the wire JSONRPC calls work. Also if you wish to build a big data lake or even just fetch dynamic events from the chain this task is near impossible without a third party paid tool and most do not let you pull it millions of rows at a time.
+If you want to get data from the chain you tend to have to use a provider like infura or alchemy, it can get expensive with their usage plans if you are trying to just get event data. On top of that pulling huge amount of data fast is not possible freely. Over the wire JSONRPC calls adds a lot of overhead and are slow. You have the TLS handshake, you may be calling a API which is located the other side of the world to you, it adds TCP connections to your backend and scaling this is not easy mainly because of how over the wire JSONRPC calls work and with that your bill increases with your provider.
 
-This project aims to solve this by reading directly from the reth node db and indexing the data into a postgres database you can then query. You can also scale this easily by running multiple instances of this program on different boxes and pointing them at the same postgres database.
+If you wish to build a big data lake or even just fetch dynamic events from the chain this task is near impossible without a third party paid tool and most do not let you pull in millions of rows at a time. This data should be able to be fetched for free, fast and customisable to your needs. This is what reth-indexer does.
+
+This project aims to solve this by reading directly from the reth node db and indexing the data into a postgres database you can then query fast with indexes already applied for you. You can also scale this easily by running multiple instances of this program on different boxes and pointing them at the same postgres database (we should build that in the tool directly).
+
+This tool is perfect for all kinds of people from developers, to data anaylsis, to ML developers to anyone who wants to just get a snapshot of event data and use it in a production app or just for their own reports.
 
 ## Features
 
@@ -27,6 +27,14 @@ This project aims to solve this by reading directly from the reth node db and in
 - Supports filtering even on the single input types so allowing you to filter on every element of the event
 - Snapshot between from and to block numbers
 - No code required it is all driven by a json config file that is easy to edit and understand
+
+## Benchmarks
+
+Very hard to benchmark as it is all down to the block range and how often your event is emitted but roughly: (most likely could be speed up with more some optimisations.)
+
+- indexes around 29,000 events a second (depending on how far away the events are in each block)
+- scans around 10,000 blocks which have no events within 580ms
+- scans around 10,000 blocks for all contract events within 13 seconds
 
 ## Indexes
 
