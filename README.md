@@ -52,7 +52,7 @@ We should compare this tool to other resync tools not one which has already resy
 
 ## How to use
 
-- git clone this repo on your box
+- git clone this repo on your box - `git clone https://github.com/joshstevens19/reth-indexer.git`
 - create a `reth-indexer-config.json` in the root of the project an example of the structure is in `reth-indexer-config-example.json`, you can use `cp reth-indexer-config-example.json reth-indexer-config.json` to create the file with the template.
 - map your config file (we going through what else property means below)
 - run `RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features  jemalloc` to run the indexer
@@ -230,14 +230,3 @@ example below is saying i want all the transfer events from all contracts if the
     }
   ]
 ```
-
-RUSTFLAGS="-C target-cpu=native target-feature=+jemalloc" cargo run --profile maxperf
-
-RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf
-
-RUSTFLAGS="-C target-feature=+jemalloc" cargo build --release
-cargo run --release
-
---features jemalloc
-
-RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features jemalloc
