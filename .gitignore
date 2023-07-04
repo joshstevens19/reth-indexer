@@ -1,0 +1,5 @@
+/target
+reth-indexer-config.json
+*.dat
+*.lck
+*.version
