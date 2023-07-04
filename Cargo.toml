@@ -1,0 +1,36 @@
+[package]
+name = "reth-database-reader"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reth-db = { git = "https://github.com/paradigmxyz/reth", package = "reth-db" }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", package = "reth-primitives" }
+csv = "1.1"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+alloy-sol-types = { git = "https://github.com/alloy-rs/core", package = "alloy-sol-types" }
+clap = { version = "4.2.5", features = ["derive"] }
+tokio-postgres = "0.7.2"
+log = "0.4"
+env_logger = "0.10"
+regex = "1.5"
+futures = "0.3"
+rayon = "1.5"
+uuid = { version = "1.3.2", features = ["v4", "serde"] }
+lazy_static = "1.4.0"
+
+jemallocator = { version = "0.5.0", optional = true }
+jemalloc-ctl = { version = "0.5.0", optional = true }
+
+[profile.maxperf]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+incremental = false
+
+[features]
+jemalloc = ["dep:jemallocator", "dep:jemalloc-ctl"]
