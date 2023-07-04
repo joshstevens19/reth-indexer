@@ -34,7 +34,7 @@ Very hard to benchmark as it is all down to the block range and how often your e
 
 - indexes around 29,000 events a second (depending on how far away the events are in each block)
 - scans around 10,000 blocks which have no events within 580ms
-- scans around 10,000 blocks for all contract events within 13 seconds
+- scans around 10,000 blocks for all contract events on events which have 10+ events in every block within 13 seconds (this would be very very different if the events was less frequent) 
 
 ## Indexes
 
