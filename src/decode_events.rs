@@ -47,7 +47,7 @@ pub struct DecodedLog {
 ///
 /// # Returns
 ///
-/// An optional vector of decoded logs. If there are no matching logs, `None` is returned.
+/// An vector of decoded logs.
 ///
 /// # Examples
 ///
@@ -59,15 +59,9 @@ pub struct DecodedLog {
 /// let abi: ABIItem = /* ABI item here */;
 ///
 /// let decoded_logs = decode_logs(topic_id, &logs, &abi);
-/// if let Some(logs) = decoded_logs {
-///     for log in logs {
-///         // Process the decoded log
-///     }
-/// }
 /// ```
-pub fn decode_logs(topic_id: H256, logs: &[Log], abi: &ABIItem) -> Option<Vec<DecodedLog>> {
-    let result: Vec<DecodedLog> = logs
-        .iter()
+pub fn decode_logs(topic_id: H256, logs: &[Log], abi: &ABIItem) -> Vec<DecodedLog> {
+    logs.iter()
         .filter_map(|log| {
             if log.topics.get(0) == Some(&topic_id) {
                 decode_log(log, abi).ok()
@@ -75,9 +69,7 @@ pub fn decode_logs(topic_id: H256, logs: &[Log], abi: &ABIItem) -> Option<Vec<De
                 None
             }
         })
-        .collect();
-
-    result.into_iter().next().map(|log| vec![log])
+        .collect()
 }
 
 /// Decodes the value of a topic using the provided ABI input definition.

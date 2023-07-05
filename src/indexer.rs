@@ -360,7 +360,8 @@ async fn process_transaction(
         }
 
         if let Some(csv_writer) = csv_writers.iter_mut().find(|w| w.name == abi_item.name) {
-            if let Some(decoded_logs) = decode_logs(topic_id, logs, abi_item) {
+            let decoded_logs = decode_logs(topic_id, logs, abi_item);
+            if !decoded_logs.is_empty() {
                 write_csv_state_record(
                     csv_writer,
                     &decoded_logs,
