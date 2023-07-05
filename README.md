@@ -12,7 +12,7 @@ This is an R&D project and most likely has missing features and bugs. Also most 
 
 If you want to get data from the chain you tend to have to use a provider like infura or alchemy, it can get expensive with their usage plans if you are trying to just get event data. On top of that pulling huge amount of data fast is not possible freely. Over the wire JSONRPC calls adds a lot of overhead and are slow. You have the TLS handshake, you may be calling a API which is located the other side of the world to you, it adds TCP connections to your backend and scaling this is not easy mainly because of how over the wire JSONRPC calls work and with that your bill increases with your provider.
 
-If you wish to build a big data lake or even just fetch dynamic events from the chain this task is near impossible without a third party paid tool and most do not let you pull in millions of rows at a time. This data should be able to be fetched for free, fast and customisable to your needs. This is what reth-indexer does.
+If you wish to build a big data lake or even just fetch dynamic events from the chain this task is near impossible without a third party paid tool or something like thegraph hoster services and most do not let you pull in millions of rows at a time fast. This data should be able to be fetched for free, blazing fast and customisable to your needs. This is what reth-indexer does.
 
 This project aims to solve this by reading directly from the reth node db and indexing the data into a postgres database you can then query fast with indexes already applied for you. You can also scale this easily by running multiple instances of this program on different boxes and pointing them at the same postgres database (we should build that in the tool directly).
 
@@ -27,14 +27,30 @@ This tool is perfect for all kinds of people from developers, to data anaylsis, 
 - Supports filtering even on the single input types so allowing you to filter on every element of the event
 - Snapshot between from and to block numbers
 - No code required it is all driven by a json config file that is easy to edit and understand
+- Created on your own infurstructure so you can scale it as you wish
 
 ## Benchmarks
 
 Very hard to benchmark as it is all down to the block range and how often your event is emitted but roughly: (most likely could be speed up with more some optimisations.)
 
-- indexes around 29,000 events a second (depending on how far away the events are in each block)
-- scans around 10,000 blocks which have no events within 580ms
-- scans around 10,000 blocks for all contract events on events which have 10+ events in every block within 13 seconds (this would be very very different if the events was less frequent) 
+- indexes around 30,000 events a second (depending on how far away the events are in each block)
+- scans around 10,000 blocks which have no events within 580ms using blooms
+
+### Head to head
+
+Only compared what I can right now but happy for others to do head to head
+
+providers:
+
+- The Graph Hosted (Substreams) - note we are not comparing legacy as it is 100x slower then substream so you can do the maths on legacy
+
+| Task                                                                                                                     | The Graph Hosted (Substreams)                                                                    | reth Indexer | reth % faster |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------ | ------------- |
+| indexing reth (rocket pool eth) transfer/approval events both starting on block 11446767 and finishing on block 17576926 | 19.5 hours <br/> https://thegraph.com/hosted-service/subgraph/data-nexus/reth-substreams-mainnet | 20 minutes   | 60x faster    |
+
+### Note on benchmarking
+
+We should compare this tool to other resync tools which go from block N not one which is already resynced. If you have the resynced information already then the results will always be faster as the data is already indexed. This goes block by block scanning each blockm for information so the bigger block ranges you have of course the longer it takes to process. How fast it is depeneds on how many events are present in the blocks.
 
 ## Indexes
 
@@ -54,16 +70,12 @@ This right now it is just focusing on indexing events it does not currently inde
 
 reth-indexer goes block by block using reth db directly searching for any events that match the event mappings you have supplied in the config file. It then writes the data to a csv file and then bulk copies the data into the postgres database. It uses blooms to disregard blocks it does not need to care about. It uses CSVs and the postgres `COPY` syntax as that can write thousands of records a second bypassing some of the processing and logging overhead associated with individual `INSERT` statements, when you are dealing with big data this is a really nice optimisation.
 
-### Bottlenecks
-
-We should compare this tool to other resync tools not one which has already resynced. If you have the resynced information already then the response will always be faster as the data is already indexed. This goes block by block scanning each one so bigger block ranges may take longer then smaller ones. How fast it is depeneds on how many events are present in the blocks.
-
 ## How to use
 
 - git clone this repo on your box - `git clone https://github.com/joshstevens19/reth-indexer.git`
 - create a `reth-indexer-config.json` in the root of the project an example of the structure is in `reth-indexer-config-example.json`, you can use `cp reth-indexer-config-example.json reth-indexer-config.json` to create the file with the template.
 - map your config file (we going through what else property means below)
-- run `RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features  jemalloc` to run the indexer
+- run `RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features jemalloc` to run the indexer
 - see all the data get synced to your postgres database
 
 ### Advise
