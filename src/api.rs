@@ -198,6 +198,13 @@ async fn handler(
                     let db_type = solidity_type_to_db_type(&abi_input.type_);
                     // handle numeric types a bit differently
                     if db_type == "NUMERIC" {
+                        // check it parses as a number
+                        value.parse::<u64>().map_err(|_| {
+                            create_error_response(format!(
+                                "Invalid value for parameter {}",
+                                abi_input.name
+                            ))
+                        })?;
                         let sql_filter: &String =
                             &format!("\"{}\" = CAST('{}' AS integer)", abi_input.name, value);
 
@@ -235,6 +242,14 @@ async fn handler(
                         }
 
                         if snake_case_key == "block_number" {
+                            // check it parses as a number
+                            value.parse::<u64>().map_err(|_| {
+                                create_error_response(format!(
+                                    "Invalid value for parameter {}",
+                                    key
+                                ))
+                            })?;
+
                             let sql_filter: &String =
                                 &format!("\"{}\" = CAST('{}' AS integer)", snake_case_key, value);
 
