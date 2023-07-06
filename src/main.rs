@@ -1,3 +1,4 @@
+mod api;
 mod csv;
 mod decode_events;
 mod indexer;
@@ -6,6 +7,7 @@ mod postgres;
 mod types;
 
 use crate::indexer::sync;
+use api::start_api;
 use std::{fs::File, io::Read, path::Path};
 use types::IndexerConfig;
 
@@ -36,7 +38,17 @@ async fn main() {
     // Initialize the logger
     env_logger::init();
 
-    let indexer_config = load_indexer_config();
+    let api_only: bool = std::env::var("API").map(|_| true).unwrap_or(false);
 
-    sync(indexer_config).await;
+    let indexer_config: IndexerConfig = load_indexer_config();
+
+    if api_only {
+        start_api(
+            &indexer_config.event_mappings,
+            &indexer_config.postgres.connection_string,
+        )
+        .await;
+    } else {
+        sync(&indexer_config).await;
+    }
 }

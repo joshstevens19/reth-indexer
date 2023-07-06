@@ -1,4 +1,4 @@
-use tokio_postgres::{Client, Error, NoTls};
+use tokio_postgres::{Client, Error, NoTls, Row};
 
 use crate::types::{ABIInput, IndexerContractMapping, IndexerPostgresConfig};
 
@@ -127,7 +127,7 @@ async fn create_tables(
 /// # Returns
 ///
 /// The corresponding database type as a `String`, or panics if the ABI type is unsupported.
-fn solidity_type_to_db_type(abi_type: &str) -> String {
+pub fn solidity_type_to_db_type(abi_type: &str) -> String {
     match abi_type {
         "address" => "CHAR(42)".to_string(),
         "bool" | "bytes" | "string" => "TEXT".to_string(),
@@ -263,6 +263,28 @@ impl PostgresClient {
         T: ?Sized + tokio_postgres::ToStatement,
     {
         self.client.execute(query, params).await
+    }
+
+    /// Reads rows from the database based on the given query and parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to execute. It must implement `tokio_postgres::ToStatement`.
+    /// * `params` - The parameters to bind to the query. Each parameter must implement `tokio_postgres::types::ToSql + Sync`.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a vector of `Row` on success, or an `Error` if the query execution fails.
+    pub async fn read<T>(
+        &mut self,
+        query: &T,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<Vec<Row>, Error>
+    where
+        T: ?Sized + tokio_postgres::ToStatement,
+    {
+        let rows = self.client.query(query, params).await?;
+        Ok(rows)
     }
 
     pub async fn drop_table(&mut self, table_name: &str) -> Result<u64, Error> {

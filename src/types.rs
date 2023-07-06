@@ -37,7 +37,7 @@ pub struct ABIItem {
 }
 
 /// Represents a contract mapping in the Indexer.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct IndexerContractMapping {
     /// The contract address.
     #[serde(rename = "filterByContractAddress")]
