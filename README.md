@@ -127,16 +127,18 @@ You can also run an basic API alongside this which exposes a REST API for you to
 
 ```json
 {
-  "events:": {
-    "from": "0x8d263F61D0F67A75868F831D83Ef51F24d10A003",
-    "to": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    "value": 1020203030,
-    "blockNumber": 13578900,
-    "indexedId": "aae863fb-2d13-4da5-9db7-55707ae93d8a",
-    "contractAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
-    "txHash": "0xb4702508ef5170cecf95ca82cb3465278fc2ef212eadd08c60498264a216f378",
-    "blockHash": "0x8f493854e6d10e4fdd2b5b0d42834d331caa80ad739225e2feb1b89cb9a1dd3c"
-  },
+  "events:": [
+    {
+      "from": "0x8d263F61D0F67A75868F831D83Ef51F24d10A003",
+      "to": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "value": 1020203030,
+      "blockNumber": 13578900,
+      "indexedId": "aae863fb-2d13-4da5-9db7-55707ae93d8a",
+      "contractAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "txHash": "0xb4702508ef5170cecf95ca82cb3465278fc2ef212eadd08c60498264a216f378",
+      "blockHash": "0x8f493854e6d10e4fdd2b5b0d42834d331caa80ad739225e2feb1b89cb9a1dd3c"
+    }
+  ],
   "pagingInfo": {
     "next": "127.0.0.1:3030/api/transfer?limit=100&offset=200",
     "previous": "127.0.0.1:3030/api/transfer?limit=100&offset=100" // < this will be null if no previous page
