@@ -1,6 +1,6 @@
 # reth-indexer
 
-reth-indexer reads directly from the reth db and indexes the data into a postgres database all decoded with a simple config file and no extra setup.
+reth-indexer reads directly from the reth db and indexes the data into a postgres database all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
 
 <img src="./assets/demo.gif" />
 
@@ -28,6 +28,7 @@ This tool is perfect for all kinds of people from developers, to data anaylsis, 
 - Snapshot between from and to block numbers
 - No code required it is all driven by a json config file that is easy to edit and understand
 - Created on your own infurstructure so you can scale it as you wish
+- Exposes a ready to go API for you to query the data
 
 ## Benchmarks
 
