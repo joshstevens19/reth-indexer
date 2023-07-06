@@ -45,9 +45,9 @@ providers:
 
 - The Graph Hosted (Substreams) - note we are not comparing legacy as it is 100x slower then substream so you can do the maths on legacy
 
-| Task                                                                                                                     | The Graph Hosted (Substreams)                                                                    | reth Indexer | reth % faster |
-| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------ | ------------- |
-| indexing reth (rocket pool eth) transfer/approval events both starting on block 11446767 and finishing on block 17576926 | 19.5 hours <br/> https://thegraph.com/hosted-service/subgraph/data-nexus/reth-substreams-mainnet | 20 minutes   | 60x faster    |
+| Task                                                                                                                                                                                                                               | The Graph Hosted (Substreams)                                                                    | reth Indexer | reth % faster |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------ | ------------- |
+| indexing reth (rocket pool eth) transfer/approval events both starting on block 11446767 and finishing on block 17576926<br/>config to run yourself [here](./benchmark-config/reth-transfer-event-config/reth-indexer-config.json) | 19.5 hours <br/> https://thegraph.com/hosted-service/subgraph/data-nexus/reth-substreams-mainnet | 20 minutes   | 60x faster    |
 
 ### Note on benchmarking
 
