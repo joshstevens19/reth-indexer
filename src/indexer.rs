@@ -136,7 +136,7 @@ async fn sync_state_to_db(
 /// # Arguments
 ///
 /// * `indexer_config` - The `IndexerConfig` containing the configuration details for the indexer.
-pub async fn sync(indexer_config: IndexerConfig) {
+pub async fn sync(indexer_config: &IndexerConfig) {
     info!("Starting indexer");
 
     let mut postgres_db = init_postgres_db(

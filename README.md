@@ -1,6 +1,6 @@
 # reth-indexer
 
-reth-indexer reads directly from the reth db and indexes the data into a postgres database all decoded with a simple config file and no extra setup.
+reth-indexer reads directly from the reth db and indexes the data into a postgres database all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
 
 <img src="./assets/demo.gif" />
 
@@ -28,6 +28,7 @@ This tool is perfect for all kinds of people from developers, to data anaylsis, 
 - Snapshot between from and to block numbers
 - No code required it is all driven by a json config file that is easy to edit and understand
 - Created on your own infurstructure so you can scale it as you wish
+- Exposes a ready to go API for you to query the data
 
 ## Benchmarks
 
@@ -72,15 +73,86 @@ reth-indexer goes block by block using reth db directly searching for any events
 
 ## How to use
 
+### Syncing
+
 - git clone this repo on your box - `git clone https://github.com/joshstevens19/reth-indexer.git`
 - create a `reth-indexer-config.json` in the root of the project an example of the structure is in `reth-indexer-config-example.json`, you can use `cp reth-indexer-config-example.json reth-indexer-config.json` to create the file with the template.
 - map your config file (we going through what else property means below)
 - run `RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features jemalloc` to run the indexer
 - see all the data get synced to your postgres database
 
-### Advise
+#### Advise
 
 reth-indexer goes block by block this means if you put block 0 to an end block it will have to check all the blocks - it does use blooms so its very fast at knowing if a block have nothing we need, but if the contract was not deployed till block x then its pointless use of resources, put in the block number the contract was deployed at as the from block number if you wanted all the events for that contract. Of course you should use the from and to block number as you wish but this is just a tip.
+
+### API
+
+You can also run an basic API alongside this which exposes a REST API for you to query the data. This is not meant to be a full blown API but just a simple way to query the data if you wish. This is not required to run the syncing logic. Alongside you can resync data and then load the API up to query the data.
+
+- you need the same mapping as what you synced as that is the source of truth
+- run `RUSTFLAGS="-C target-cpu=native" API=true cargo run --profile maxperf --features jemalloc` to run the api
+- it will expose an endpoints on `127.0.0.1:3030/api/`
+  - The rest structure is the name of ABI event name you are calling so:
+  ```json
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "Transfer",
+    "type": "event"
+  }
+  ```
+  - if you wanted data from this event you query `127.0.0.1:3030/api/transfer` and it will return all the data for that event.
+- you can use `limit` to define the amount you want brought back - `127.0.0.1:3030/api/transfer?limit=100`
+- you can use `offset` to page the results - `127.0.0.1:3030/api/transfer?limit=100&offset=100`
+- the result of the rest API are dependant on the event ABI you have supplied so it always includes the fields in the ABI input and then the additional fields of `blockNumber`, `txHash`, `blockHash`, `contractAddress`, `indexedId`.
+
+```json
+{
+  "events:": [
+    {
+      "from": "0x8d263F61D0F67A75868F831D83Ef51F24d10A003",
+      "to": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "value": 1020203030,
+      "blockNumber": 13578900,
+      "indexedId": "aae863fb-2d13-4da5-9db7-55707ae93d8a",
+      "contractAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
+      "txHash": "0xb4702508ef5170cecf95ca82cb3465278fc2ef212eadd08c60498264a216f378",
+      "blockHash": "0x8f493854e6d10e4fdd2b5b0d42834d331caa80ad739225e2feb1b89cb9a1dd3c"
+    }
+  ],
+  "pagingInfo": {
+    "next": "127.0.0.1:3030/api/transfer?limit=100&offset=200",
+    "previous": "127.0.0.1:3030/api/transfer?limit=100&offset=100" // < this will be null if no previous page
+  }
+}
+```
+
+#### Searching
+
+The api allows you to filter on every element on the data with query string parameters for example if i wanted to filter on the `from` and `to` address i would do:
+
+`curl "127.0.0.1:3030/api/transfer?from=0x8d263F61D0F67A75868F831D83Ef51F24d10A003&to=0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"` - remember the quotes around the endpoint if using curl as it will only bring in certain query string parameters if you dont.
+
+you can mix and match with ANY fields that you want including the common fields no limit with the amount of fields either. Bare in mind the postgres database automatically creates an index for the fields which are marked as "indexed" true on the ABI so if you filter on those fields it will be very fast, if you filter on a field which is not indexed it will not be as fast, you can of course add your index in, will create a ticket to allow you to pass in a custom index for the future
 
 ## Config file
 
