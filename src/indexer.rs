@@ -265,12 +265,7 @@ async fn process_block(
     header_tx_info: &Header,
 ) {
     let block_body_indices = reth_db.get_block_body_indices(block_number);
-    // caught up with the state of reth db
-    if block_body_indices.is_none() {
-        return;
-    }
-
-    if let Some(block_body_indices) = reth_db.get_block_body_indices(block_number) {
+    if let Some(block_body_indices) = block_body_indices {
         for tx_id in block_body_indices.first_tx_num
             ..block_body_indices.first_tx_num + block_body_indices.tx_count
         {
