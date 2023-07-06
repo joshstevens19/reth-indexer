@@ -33,9 +33,10 @@ impl NodeDb {
     /// This function returns an error if:
     ///   - The database cannot be opened. Make sure the specified path is valid and the reth node is syncing and readable.
     pub fn new(path: &Path) -> Result<Self, String> {
-        let reth_db = Env::<NoWriteMap>::open(path, reth_db::mdbx::EnvKind::RO).map_err(|_| {
-            "Could not open database make sure reth node is syncing and readable".to_string()
-        })?;
+        let reth_db =
+            Env::<NoWriteMap>::open(path, reth_db::mdbx::EnvKind::RO, None).map_err(|_| {
+                "Could not open database make sure reth node is syncing and readable".to_string()
+            })?;
 
         Ok(Self { reth_db })
     }

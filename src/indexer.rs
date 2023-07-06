@@ -1,10 +1,8 @@
 use std::{str::FromStr, time::Instant};
 
 use log::info;
-use reth_primitives::{
-    rpc::{self, Bloom, FilteredParams, ValueOrArray},
-    Address, BlockHash, Header, Log, TransactionSignedNoHash, H256,
-};
+use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
+use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
 
 use crate::{
@@ -170,9 +168,8 @@ pub async fn sync(indexer_config: &IndexerConfig) {
         info!("checking block: {}", block_number);
 
         for mapping in &indexer_config.event_mappings {
-            let rpc_bloom: reth_primitives::rpc::Bloom =
-                reth_primitives::rpc::Bloom::from_str(&format!("{:?}", header_tx_info.logs_bloom))
-                    .unwrap();
+            let rpc_bloom: Bloom =
+                Bloom::from_str(&format!("{:?}", header_tx_info.logs_bloom)).unwrap();
 
             if let Some(contract_address) = &mapping.filter_by_contract_addresses {
                 // check at least 1 matches bloom in mapping file
@@ -263,7 +260,7 @@ async fn process_block(
     csv_writers: &mut [CsvWriter],
     postgres_db: &mut PostgresClient,
     mapping: &IndexerContractMapping,
-    rpc_bloom: reth_primitives::rpc::Bloom,
+    rpc_bloom: Bloom,
     block_number: u64,
     header_tx_info: &Header,
 ) {
@@ -347,7 +344,7 @@ async fn process_transaction(
     csv_writers: &mut [CsvWriter],
     postgres_db: &mut PostgresClient,
     mapping: &IndexerContractMapping,
-    rpc_bloom: rpc::Bloom,
+    rpc_bloom: Bloom,
     logs: &[Log],
     transaction: TransactionSignedNoHash,
     header_tx_info: &Header,

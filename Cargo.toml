@@ -10,6 +10,7 @@ axum = "0.6.4"
 tokio = { version = "1", features = ["full"] }
 reth-db = { git = "https://github.com/paradigmxyz/reth", package = "reth-db" }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", package = "reth-primitives" }
+reth-rpc-types = { git = "https://github.com/paradigmxyz/reth" }
 csv = "1.1"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
