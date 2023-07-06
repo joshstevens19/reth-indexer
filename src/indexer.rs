@@ -1,14 +1,17 @@
 use std::{str::FromStr, time::Instant};
 
 use log::info;
-use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
+use reth_primitives::{Address, BlockHash, Bloom, Header, Log, H256, TransactionSigned};
 use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
+use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
 
 use crate::{
     csv::{create_csv_writers, CsvWriter},
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    node_db::NodeDb,
+    provider::{
+        block_body_indices, get_reth_factory, header_by_number, receipt, transaction_by_id,
+    },
     postgres::{init_postgres_db, PostgresClient},
     types::{IndexerConfig, IndexerContractMapping},
 };
@@ -67,7 +70,7 @@ fn write_csv_state_record(
 fn contract_in_bloom(contract_address: Address, logs_bloom: Bloom) -> bool {
     // TODO create a issue on reth about this
     let address_filter =
-        FilteredParams::address_filter(&Some(ValueOrArray::Value(contract_address.into())));
+        FilteredParams::address_filter(&Some(ValueOrArray::Value(contract_address)));
     FilteredParams::matches_address(logs_bloom, &address_filter)
 }
 
@@ -84,7 +87,7 @@ fn contract_in_bloom(contract_address: Address, logs_bloom: Bloom) -> bool {
 fn topic_in_bloom(topic_id: H256, logs_bloom: Bloom) -> bool {
     // TODO create a issue on reth about this
     let topic_filter =
-        FilteredParams::topics_filter(&Some(vec![ValueOrArray::Value(Some(topic_id.into()))]));
+        FilteredParams::topics_filter(&Some(vec![ValueOrArray::Value(Some(topic_id))]));
     FilteredParams::matches_topics(logs_bloom, &topic_filter)
 }
 
@@ -146,9 +149,6 @@ pub async fn sync(indexer_config: &IndexerConfig) {
     .await
     .expect("Failed to initialize Postgres database");
 
-    let reth_db =
-        NodeDb::new(&indexer_config.reth_db_location).expect("Failed to initialize reth DB");
-
     let mut csv_writers = create_csv_writers(
         indexer_config.csv_location.as_path(),
         &indexer_config.event_mappings,
@@ -164,7 +164,13 @@ pub async fn sync(indexer_config: &IndexerConfig) {
 
     let start = Instant::now();
 
-    while let Some(header_tx_info) = reth_db.get_block_headers(block_number) {
+    let factory = get_reth_factory(&indexer_config.reth_db_location)
+        .expect("Failed to initialize reth factory");
+    let provider: reth_provider::DatabaseProvider<'_, _> = factory
+        .provider()
+        .expect("Failed to initialize reth provider");
+
+    while let Some(header_tx_info) = header_by_number(&provider, block_number) {
         info!("checking block: {}", block_number);
 
         for mapping in &indexer_config.event_mappings {
@@ -190,7 +196,7 @@ pub async fn sync(indexer_config: &IndexerConfig) {
             }
 
             process_block(
-                &reth_db,
+                &provider,
                 &mut csv_writers,
                 &mut postgres_db,
                 mapping,
@@ -255,8 +261,8 @@ pub async fn sync(indexer_config: &IndexerConfig) {
 /// * `rpc_bloom` - The bloom filter associated with the block's RPC logs.
 /// * `block_number` - The block number being processed.
 /// * `header_tx_info` - A reference to the `Header` containing transaction-related information.
-async fn process_block(
-    reth_db: &NodeDb,
+async fn process_block<T: ReceiptProvider + TransactionsProvider + HeaderProvider + BlockReader>(
+    provider: T,
     csv_writers: &mut [CsvWriter],
     postgres_db: &mut PostgresClient,
     mapping: &IndexerContractMapping,
@@ -264,22 +270,22 @@ async fn process_block(
     block_number: u64,
     header_tx_info: &Header,
 ) {
-    let block_body_indices = reth_db.get_block_body_indices(block_number);
+    let block_body_indices = block_body_indices(&provider, block_number);
     // caught up with the state of reth db
     if block_body_indices.is_none() {
         return;
     }
 
-    if let Some(block_body_indices) = reth_db.get_block_body_indices(block_number) {
+    if let Some(block_body_indices) = block_body_indices {
         for tx_id in block_body_indices.first_tx_num
             ..block_body_indices.first_tx_num + block_body_indices.tx_count
         {
-            if let Some(transaction) = reth_db.get_transaction(tx_id) {
+            if let Some(transaction) = transaction_by_id(&provider, tx_id) {
                 if transaction.to().is_none() {
                     continue;
                 }
 
-                if let Some(receipt) = reth_db.get_receipt(tx_id) {
+                if let Some(receipt) = receipt(&provider, tx_id) {
                     let logs: Vec<Log> =
                         if let Some(contract_address) = &mapping.filter_by_contract_addresses {
                             receipt
@@ -346,7 +352,7 @@ async fn process_transaction(
     mapping: &IndexerContractMapping,
     rpc_bloom: Bloom,
     logs: &[Log],
-    transaction: TransactionSignedNoHash,
+    transaction: TransactionSigned,
     header_tx_info: &Header,
 ) {
     for abi_item in &mapping.decode_abi_items {

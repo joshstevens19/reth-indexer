@@ -2,9 +2,9 @@ mod api;
 mod csv;
 mod decode_events;
 mod indexer;
-mod node_db;
 mod postgres;
 mod types;
+mod provider;
 
 use crate::indexer::sync;
 use api::start_api;
