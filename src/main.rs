@@ -3,8 +3,8 @@ mod csv;
 mod decode_events;
 mod indexer;
 mod postgres;
-mod types;
 mod provider;
+mod types;
 
 use crate::indexer::sync;
 use api::start_api;

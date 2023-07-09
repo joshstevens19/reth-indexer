@@ -1,18 +1,16 @@
 use std::{str::FromStr, time::Instant};
 
 use log::info;
-use reth_primitives::{Address, BlockHash, Bloom, Header, Log, H256, TransactionSigned};
+use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSigned, H256};
+use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
 use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
-use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
 
 use crate::{
     csv::{create_csv_writers, CsvWriter},
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    provider::{
-        block_body_indices, get_reth_factory, header_by_number, receipt, transaction_by_id,
-    },
     postgres::{init_postgres_db, PostgresClient},
+    provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
 };
 
@@ -170,7 +168,7 @@ pub async fn sync(indexer_config: &IndexerConfig) {
         .provider()
         .expect("Failed to initialize reth provider");
 
-    while let Some(header_tx_info) = header_by_number(&provider, block_number) {
+    while let Some(header_tx_info) = provider.header_by_number(block_number).unwrap() {
         info!("checking block: {}", block_number);
 
         for mapping in &indexer_config.event_mappings {
@@ -270,7 +268,7 @@ async fn process_block<T: ReceiptProvider + TransactionsProvider + HeaderProvide
     block_number: u64,
     header_tx_info: &Header,
 ) {
-    let block_body_indices = block_body_indices(&provider, block_number);
+    let block_body_indices = provider.block_body_indices(block_number).unwrap();
     // caught up with the state of reth db
     if block_body_indices.is_none() {
         return;
@@ -280,12 +278,12 @@ async fn process_block<T: ReceiptProvider + TransactionsProvider + HeaderProvide
         for tx_id in block_body_indices.first_tx_num
             ..block_body_indices.first_tx_num + block_body_indices.tx_count
         {
-            if let Some(transaction) = transaction_by_id(&provider, tx_id) {
+            if let Some(transaction) = provider.transaction_by_id(tx_id).unwrap() {
                 if transaction.to().is_none() {
                     continue;
                 }
 
-                if let Some(receipt) = receipt(&provider, tx_id) {
+                if let Some(receipt) = provider.receipt(tx_id).unwrap() {
                     let logs: Vec<Log> =
                         if let Some(contract_address) = &mapping.filter_by_contract_addresses {
                             receipt
