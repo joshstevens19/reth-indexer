@@ -1,4 +1,8 @@
-use std::{str::FromStr, time::Instant};
+use std::{
+    str::FromStr,
+    thread,
+    time::{Duration, Instant},
+};
 
 use log::info;
 use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
@@ -114,6 +118,32 @@ async fn sync_state_to_db(
     csv_writer.reset();
 }
 
+/// Synchronizes all states from CSV files to the PostgreSQL database.
+///
+/// This function iterates over the event mappings specified in the `indexer_config`
+/// and synchronizes the state data from CSV files to the PostgreSQL database.
+/// For each ABI item in the event mappings, it finds the corresponding CSV writer
+/// and invokes the `sync_state_to_db` function to perform the synchronization.
+///
+/// # Arguments
+///
+/// * `indexer_config` - A reference to the `IndexerConfig` containing the configuration settings.
+/// * `csv_writers` - A mutable slice of `CsvWriter` instances representing the CSV writers for each ABI item.
+/// * `postgres_db` - A mutable reference to the `PostgresClient` for interacting with the PostgreSQL database.
+async fn sync_all_states_to_db(
+    indexer_config: &IndexerConfig,
+    csv_writers: &mut [CsvWriter],
+    postgres_db: &mut PostgresClient,
+) {
+    for mapping in &indexer_config.event_mappings {
+        for abi_item in &mapping.decode_abi_items {
+            if let Some(csv_writer) = csv_writers.iter_mut().find(|w| w.name == abi_item.name) {
+                sync_state_to_db(abi_item.name.to_lowercase(), csv_writer, postgres_db).await;
+            }
+        }
+    }
+}
+
 /// Synchronizes the indexer by processing blocks and writing the decoded logs to CSV files and
 /// a PostgreSQL database.
 ///
@@ -164,62 +194,91 @@ pub async fn sync(indexer_config: &IndexerConfig) {
 
     let start = Instant::now();
 
-    while let Some(header_tx_info) = reth_db.get_block_headers(block_number) {
-        info!("checking block: {}", block_number);
+    let mut reached_head = false;
 
-        for mapping in &indexer_config.event_mappings {
-            let rpc_bloom: Bloom =
-                Bloom::from_str(&format!("{:?}", header_tx_info.logs_bloom)).unwrap();
+    // unlimited loop to handle all cases
+    loop {
+        match reth_db.get_block_headers(block_number) {
+            None => {
+                // means it should stay alive when at head
+                if to_block == u64::MAX {
+                    if !reached_head {
+                        sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db)
+                            .await;
+                        println!("synced all data to postgres, waiting for new blocks and reth-indexer will now index as they come in.");
+                        let duration = start.elapsed();
+                        println!("Elapsed time: {:.2?}", duration);
+                        reached_head = true;
+                    }
 
-            if let Some(contract_address) = &mapping.filter_by_contract_addresses {
-                // check at least 1 matches bloom in mapping file
-                if !contract_address
-                    .iter()
-                    .any(|address| contract_in_bloom(*address, rpc_bloom))
-                {
-                    continue;
+                    loop {
+                        let latest_block_number = reth_db.get_latest_block_number();
+                        info!("latest block number: {}", latest_block_number);
+                        info!("last seen block number: {}", block_number);
+
+                        if latest_block_number > block_number {
+                            block_number = latest_block_number;
+                            info!("new block to check: {}", latest_block_number);
+                            break;
+                        }
+
+                        // sleep for 2 seconds, mainnet blocks are 12 seconds apart but we want the indexer to be fast so worth
+                        // the extra db checks on block
+                        thread::sleep(Duration::from_secs(2));
+                    }
+                } else {
+                    break;
                 }
             }
+            Some(header_tx_info) => {
+                info!("checking block: {}", block_number);
 
-            if !mapping
-                .decode_abi_items
-                .iter()
-                .any(|item| topic_in_bloom(abi_item_to_topic_id(item), rpc_bloom))
-            {
-                continue;
-            }
+                for mapping in &indexer_config.event_mappings {
+                    let rpc_bloom: Bloom =
+                        Bloom::from_str(&format!("{:?}", header_tx_info.logs_bloom)).unwrap();
 
-            process_block(
-                &reth_db,
-                &mut csv_writers,
-                &mut postgres_db,
-                mapping,
-                rpc_bloom,
-                block_number,
-                &header_tx_info,
-            )
-            .await;
-        }
+                    if let Some(contract_address) = &mapping.filter_by_contract_addresses {
+                        // check at least 1 matches bloom in mapping file
+                        if !contract_address
+                            .iter()
+                            .any(|address| contract_in_bloom(*address, rpc_bloom))
+                        {
+                            continue;
+                        }
+                    }
 
-        block_number += 1;
-        if block_number > to_block {
-            // clean up any left over in the csv
-            for mapping in &indexer_config.event_mappings {
-                for abi_item in &mapping.decode_abi_items {
-                    if let Some(csv_writer) = csv_writers.iter_mut().find(|w| {
-                        //w.name == abi_item.name && w.contract_address == mapping.contract_address
-                        w.name == abi_item.name
-                    }) {
-                        sync_state_to_db(
-                            abi_item.name.to_lowercase(),
-                            csv_writer,
-                            &mut postgres_db,
-                        )
-                        .await;
+                    if !mapping
+                        .decode_abi_items
+                        .iter()
+                        .any(|item| topic_in_bloom(abi_item_to_topic_id(item), rpc_bloom))
+                    {
+                        continue;
+                    }
+
+                    process_block(
+                        &reth_db,
+                        &mut csv_writers,
+                        &mut postgres_db,
+                        mapping,
+                        rpc_bloom,
+                        block_number,
+                        &header_tx_info,
+                    )
+                    .await;
+                }
+
+                block_number += 1;
+                // if we have reached the head, we want to keep going
+                // if we are higher then the defined block number we write and exist
+                if block_number > to_block || reached_head {
+                    sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db).await;
+
+                    // only exit if we have reached the head as it should continue to run and wait for new blocks
+                    if !reached_head {
+                        break;
                     }
                 }
             }
-            break;
         }
     }
 
