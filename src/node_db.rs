@@ -84,6 +84,34 @@ impl NodeDb {
             .unwrap()
     }
 
+    /// Retrieves the latest block number from the `reth_db`.
+    ///
+    /// This function calculates the size of the `Headers` database by accessing its statistics.
+    /// It retrieves the page size, number of leaf pages, branch pages, and overflow pages,
+    /// and calculates the total table size. The table size is then returned as the latest block number.
+    ///
+    /// # Returns
+    ///
+    /// The latest block number as a `u64`.
+    pub fn get_latest_block_number(&self) -> u64 {
+        self.reth_db
+            .view(|tx| {
+                let headers = tx.inner.open_db(Some(&"Headers".to_string())).unwrap();
+
+                let stats = tx.inner.db_stat(&headers).unwrap();
+
+                let page_size = stats.page_size() as usize;
+                let leaf_pages = stats.leaf_pages();
+                let branch_pages = stats.branch_pages();
+                let overflow_pages = stats.overflow_pages();
+                let num_pages = leaf_pages + branch_pages + overflow_pages;
+                let table_size = page_size * num_pages;
+
+                table_size as u64
+            })
+            .unwrap()
+    }
+
     // Retrieves the receipt from the reth DB for the specified key.
     ///
     /// # Arguments

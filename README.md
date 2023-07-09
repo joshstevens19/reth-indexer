@@ -156,6 +156,8 @@ you can mix and match with ANY fields that you want including the common fields 
 
 ## Config file
 
+you can see an example config [here](./reth-indexer-config-example.json) but its important to read the below config options as it has many different features which can be enabled by the config setup.
+
 ### rethDBLocation - required
 
 The location of the reth node db on the box.
@@ -174,9 +176,9 @@ The block number to start indexing from.
 
 example: `"fromBlockNumber": 17569693,`
 
-### toBlockNumber - required
+### toBlockNumber - optional
 
-The block number to stop indexing at, if you want to index up to the latest reth block that it is synced to do not supply.
+The block number to stop indexing at, if you want to a live indexer leave it blank and it will index all the data and once caught up to the head sync live.
 
 example: `"toBlockNumber": 17569794,`
 
