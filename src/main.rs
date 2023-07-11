@@ -4,6 +4,7 @@ mod decode_events;
 mod indexer;
 mod node_db;
 mod postgres;
+mod provider;
 mod types;
 
 use crate::indexer::sync;

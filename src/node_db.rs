@@ -3,11 +3,7 @@ use std::path::Path;
 use reth_db::{
     database::Database,
     mdbx::{Env, NoWriteMap},
-    models::StoredBlockBodyIndices,
-    tables,
-    transaction::DbTx,
 };
-use reth_primitives::{Header, Receipt, TransactionSignedNoHash};
 
 pub struct NodeDb {
     reth_db: Env<NoWriteMap>,
@@ -41,49 +37,7 @@ impl NodeDb {
         Ok(Self { reth_db })
     }
 
-    /// Retrieves the stored block body indices for a given block number.
-    ///
-    /// This function retrieves the stored block body indices for the specified block number from the underlying database.
-    /// It returns an `Option<StoredBlockBodyIndices>`, which contains the block body indices if they exist in the database,
-    /// or `None` if the block body indices are not found.
-    ///
-    /// # Arguments
-    ///
-    /// * `block_number` - The block number for which to retrieve the block body indices.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<StoredBlockBodyIndices>` - The stored block body indices wrapped in an `Option`.
-    ///   - `Some(StoredBlockBodyIndices)` if the block body indices exist in the database.
-    ///   - `None` if the block body indices are not found.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if there is an error accessing the database or retrieving the block body indices.
-    /// Make sure the database connection is established and the necessary tables exist before calling this function.
-    pub fn get_block_body_indices(&self, block_number: u64) -> Option<StoredBlockBodyIndices> {
-        self.reth_db
-            .view(|tx| tx.get::<tables::BlockBodyIndices>(block_number))
-            .unwrap()
-            .unwrap()
-    }
-
-    /// Retrieves the block headers for a given block number from the reth database.
-    ///
-    /// # Arguments
-    ///
-    /// * `block_number` - The block number for which to retrieve the headers.
-    ///
-    /// # Returns
-    ///
-    /// An `Option` containing the block headers if found, or `None` if the headers are not available in the database.
-    pub fn get_block_headers(&self, block_number: u64) -> Option<Header> {
-        self.reth_db
-            .view(|tx| tx.get::<tables::Headers>(block_number))
-            .unwrap()
-            .unwrap()
-    }
-
+    // TODO! ADD TO RETH PROVIDER?!
     /// Retrieves the latest block number from the `reth_db`.
     ///
     /// This function calculates the size of the `Headers` database by accessing its statistics.
@@ -109,49 +63,6 @@ impl NodeDb {
 
                 table_size as u64
             })
-            .unwrap()
-    }
-
-    // Retrieves the receipt from the reth DB for the specified key.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The key identifying the receipt to retrieve.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<Option<Receipt>, ()>` - The receipt wrapped in a `Result` indicating success or failure.
-    pub fn get_receipt(&self, key: u64) -> Option<Receipt> {
-        self.reth_db
-            .view(|tx| tx.get::<tables::Receipts>(key))
-            .unwrap()
-            .unwrap()
-    }
-
-    /// Retrieves a stored transaction by key.
-    ///
-    /// This function retrieves a stored transaction with the specified key from the underlying database.
-    /// It returns an `Option<TransactionSignedNoHash>`, which contains the transaction if it exists in the database,
-    /// or `None` if the transaction is not found.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The key of the transaction to retrieve.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<TransactionSignedNoHash>` - The stored transaction wrapped in an `Option`.
-    ///   - `Some(TransactionSignedNoHash)` if the transaction exists in the database.
-    ///   - `None` if the transaction is not found.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if there is an error accessing the database or retrieving the transaction.
-    /// Make sure the database connection is established and the necessary tables exist before calling this function.
-    pub fn get_transaction(&self, key: u64) -> Option<TransactionSignedNoHash> {
-        self.reth_db
-            .view(|tx| tx.get::<tables::Transactions>(key))
-            .unwrap()
             .unwrap()
     }
 }
