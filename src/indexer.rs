@@ -1,7 +1,7 @@
 use std::{str::FromStr, time::Instant};
 
 use log::info;
-use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSigned, H256};
+use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
 use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
 use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
@@ -278,7 +278,7 @@ async fn process_block<T: ReceiptProvider + TransactionsProvider + HeaderProvide
         for tx_id in block_body_indices.first_tx_num
             ..block_body_indices.first_tx_num + block_body_indices.tx_count
         {
-            if let Some(transaction) = provider.transaction_by_id(tx_id).unwrap() {
+            if let Some(transaction) = provider.transaction_by_id_no_hash(tx_id).unwrap() {
                 if transaction.to().is_none() {
                     continue;
                 }
@@ -350,7 +350,7 @@ async fn process_transaction(
     mapping: &IndexerContractMapping,
     rpc_bloom: Bloom,
     logs: &[Log],
-    transaction: TransactionSigned,
+    transaction: TransactionSignedNoHash,
     header_tx_info: &Header,
 ) {
     for abi_item in &mapping.decode_abi_items {
