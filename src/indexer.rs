@@ -6,14 +6,15 @@ use std::{
 
 use log::info;
 use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
-use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
+use reth_provider::{
+    BlockNumReader, BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider,
+};
 use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
 
 use crate::{
     csv::{create_csv_writers, CsvWriter},
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    node_db::NodeDb,
     postgres::{init_postgres_db, PostgresClient},
     provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
@@ -188,10 +189,6 @@ pub async fn sync(indexer_config: &IndexerConfig) {
     let mut block_number = indexer_config.from_block;
     let to_block = indexer_config.to_block.unwrap_or(u64::MAX);
 
-    // TODO remove once we can get the latest block from reth-provider
-    let reth_db =
-        NodeDb::new(&indexer_config.reth_db_location).expect("Failed to initialize reth DB");
-
     let factory = get_reth_factory(&indexer_config.reth_db_location)
         .expect("Failed to initialize reth factory");
     let provider: reth_provider::DatabaseProvider<'_, _> = factory
@@ -221,7 +218,7 @@ pub async fn sync(indexer_config: &IndexerConfig) {
                     }
 
                     loop {
-                        let latest_block_number = reth_db.get_latest_block_number();
+                        let latest_block_number = provider.last_block_number().unwrap();
                         info!("latest block number: {}", latest_block_number);
                         info!("last seen block number: {}", block_number);
 
