@@ -35,7 +35,7 @@ This tool is perfect for all kinds of people from developers, to data anaylsis, 
 Very hard to benchmark as it is all down to the block range and how often your event is emitted but roughly: (most likely could be speed up with more some optimisations.)
 
 - indexes around 30,000 events a second (depending on how far away the events are in each block)
-- scans around 10,000 blocks which have no events within 580ms using blooms
+- scans around 10,000 blocks which have no events within 400ms using blooms
 
 ### Head to head
 
