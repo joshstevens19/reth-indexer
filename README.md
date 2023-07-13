@@ -205,7 +205,7 @@ example: `"dropTableBeforeSync": true,`
 
 #### applyIndexesBeforeSync - optional - default false
 
-Added more indexes to a table speeds up the queries but that doesn't come without a cost, writing to tables with loads of indexes is slower then writing to one without. Without indexes a database with a lot of data will be very slow to query, indexes make the DB fast. This flag allows you to toggle if you wish the indexes to be on from the moment it syncs meaning the queries will be fast straight away as syncing, this may be useful if you have a lot of data to sync and you want to query it as it syncs. If you do not mind waiting for the data to resync then you can leave this off and it will apply the indexes after the sync is complete, note this doesnt matter once it reaches the head as it will be syncing live with all indexes applied.
+Added more indexes to a table speeds up the queries but that doesn't come without a cost, writing to tables with loads of indexes is slower than writing to one without. Without indexes a database with a lot of data will be very slow to query, indexes make the DB fast. This flag allows you to toggle if you wish the indexes to be on from the moment it syncs meaning the queries will be fast straight away as syncing, this may be useful if you have a lot of data to sync and you want to query it as it syncs (this will be slower to resync). If you do not mind waiting for the data to resync then you can leave this off and it will apply the indexes after the sync is complete (this will be faster to resync but data slower to query until its complete), note this doesn't matter once it reaches the head as it will be syncing live with all indexes applied.
 
 example: `"applyIndexesBeforeSync": true,`
 
