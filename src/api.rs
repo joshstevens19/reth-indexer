@@ -4,6 +4,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -101,6 +102,7 @@ pub async fn start_api(event_mappings: &[IndexerContractMapping], connection_str
 enum DynamicValue {
     String(String),
     Integer(u64),
+    Decimal(Decimal),
     Null(Value),
     Uuid(Uuid),
     Bool(bool),
@@ -109,7 +111,12 @@ enum DynamicValue {
 impl<'a> FromSql<'a> for DynamicValue {
     fn from_sql(ty: &Type, raw: &[u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         match ty.name() {
-            "numeric" | "int4" => {
+            "numeric" => {
+                let decimal = Decimal::from_sql(ty, raw).unwrap();
+
+                Ok(DynamicValue::Decimal(decimal))
+            }
+            "int4" => {
                 let number = raw
                     .iter()
                     .fold(0u64, |acc, &byte| (acc << 8) | u64::from(byte));
@@ -188,7 +195,12 @@ async fn handler(
                 continue;
             }
             for abi_input in &abi_item.inputs {
-                if let Some(value) = search_params.get(&abi_input.name) {
+                let name = abi_input.name.to_lowercase();
+                if let Some(value) = search_params
+                    .iter()
+                    .find(|(key, _)| key.to_lowercase() == name)
+                    .map(|(_, value)| value)
+                {
                     if filter_sql.is_empty() {
                         filter_sql.push_str("WHERE ");
                     } else {
@@ -206,7 +218,7 @@ async fn handler(
                             ))
                         })?;
                         let sql_filter: &String =
-                            &format!("\"{}\" = CAST('{}' AS integer)", abi_input.name, value);
+                            &format!("\"{}\" = CAST('{}' AS NUMERIC)", name, value);
 
                         // add the casting
                         filter_sql.push_str(sql_filter);
@@ -275,6 +287,8 @@ async fn handler(
         "SELECT * FROM {} {} ORDER BY \"timestamp\" OFFSET $1 LIMIT $2",
         event_name, filter_sql
     );
+
+    // println!("Query: {}", query);
 
     let result = postgres.read(&query, &sql_query_params).await.unwrap();
 
