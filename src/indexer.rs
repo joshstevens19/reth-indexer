@@ -243,6 +243,7 @@ pub async fn sync(indexer_config: &IndexerConfig) {
                         thread::sleep(Duration::from_secs(2));
                     }
                 } else {
+                    sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db).await;
                     break;
                 }
             }

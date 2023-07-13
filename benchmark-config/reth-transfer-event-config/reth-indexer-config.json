@@ -5,6 +5,7 @@
   "toBlockNumber": 17576926,
   "postgres": {
     "dropTableBeforeSync": true,
+    "applyIndexesBeforeSync": false,
     "connectionString": "postgresql://postgres:password@localhost:5432/reth_indexer"
   },
   "eventMappings": [
