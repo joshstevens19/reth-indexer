@@ -131,7 +131,7 @@ You can also run an basic API alongside this which exposes a REST API for you to
     {
       "from": "0x8d263F61D0F67A75868F831D83Ef51F24d10A003",
       "to": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-      "value": 1020203030,
+      "value": "1020203030",
       "blockNumber": 13578900,
       "indexedId": "aae863fb-2d13-4da5-9db7-55707ae93d8a",
       "contractAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
@@ -145,6 +145,8 @@ You can also run an basic API alongside this which exposes a REST API for you to
   }
 }
 ```
+
+A note numbers are stored as numeric in the database but when brought back they will be strings due to overflows and limits in other languages.
 
 #### Searching
 
