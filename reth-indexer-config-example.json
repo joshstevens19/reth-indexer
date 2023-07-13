@@ -5,6 +5,7 @@
   "toBlockNumber": 17570693,
   "postgres": {
     "dropTableBeforeSync": true,
+    "applyIndexesBeforeSync": false,
     "connectionString": "postgresql://postgres:password@localhost:5432/reth_indexer"
   },
   "eventMappings": [
@@ -34,7 +35,8 @@
             }
           ],
           "name": "Transfer",
-          "type": "event"
+          "type": "event",
+          "customDbIndexes": [["value"], ["to", "from"]]
         }
       ]
     }

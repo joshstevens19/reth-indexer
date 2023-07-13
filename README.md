@@ -203,6 +203,12 @@ If you want to drop the table before syncing the data to it, this is useful if y
 
 example: `"dropTableBeforeSync": true,`
 
+#### applyIndexesBeforeSync - optional - default false
+
+Added more indexes to a table speeds up the queries but that doesn't come without a cost, writing to tables with loads of indexes is slower then writing to one without. Without indexes a database with a lot of data will be very slow to query, indexes make the DB fast. This flag allows you to toggle if you wish the indexes to be on from the moment it syncs meaning the queries will be fast straight away as syncing, this may be useful if you have a lot of data to sync and you want to query it as it syncs. If you do not mind waiting for the data to resync then you can leave this off and it will apply the indexes after the sync is complete, note this doesnt matter once it reaches the head as it will be syncing live with all indexes applied.
+
+example: `"applyIndexesBeforeSync": true,`
+
 #### connectionString - required
 
 The connection string to connect to the postgres database.
@@ -286,7 +292,91 @@ example:
       ]
 ```
 
-##### custom regex per input type - (rethRegexMatch)
+##### setting custom db indexes - (customDbIndexes) - optional
+
+Note before reading its worth noting about `applyIndexesBeforeSync` setting under `postgres` this flag is important to understand what it means when it is on, having indexes as it writes bulk data slows down the write speed so you need to toggle that setting depending on your need.
+
+If you want the database to be fast you will want to add some custom indexes based on how you wish to query this data. reth-indexer already added indexes for all the `indexed` ABI input fields but you can add more if you wish to query on other fields. A DB can only be as fast as its indexes so if your looking for API speed on querying or just general querying speed up this is the optimisation you want to do.
+
+In the example below this config is indexing all of the uniswap `swap` events and adding a custom index on the `amount1In` field and the `amount0In` this is composite index meaning it is based on multiple columns. Now when you try to query `amount1In` and `amount0In` together in a `WHERE` clause it will be fast. You can also just add single fields in the `customDbIndexes`, so if you look below the on-chain field `amount1Out` is not indexed so an index will not be automatically created but without an index it will be very slow so just add it in the array of `customDbIndexes`.
+
+```JSON
+  "decodeAbiItems": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount0In",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount1In",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount0Out",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount1Out",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "Swap",
+      "type": "event",
+      "customDbIndexes": [
+        [
+          "amount1In",
+          "amount0In"
+        ],
+        [
+          "amount1Out"
+        ]
+      ]
+    }
+  ]
+```
+
+Note: `customDbIndexes` is a `Option<Vec<Vec<String>>>` so you can add as many indexes as you like, remember each item in the `Vec` is a SINGLE index so if you put:
+
+```JSON
+"customDbIndexes": [
+  [
+    "amount1In",
+    "amount0In"
+  ],
+  [
+    "amount1Out"
+  ]
+]
+```
+
+this will create 2 indexes:
+
+1. `CREATE INDEX IF NOT EXISTS swap_idx__amount1in_amount0in ON swap("amount1in", "amount0in");`
+2. `CREATE INDEX IF NOT EXISTS swap_idx__amount1out ON swap("amount1out");`
+
+##### custom regex per input type - (rethRegexMatch) - optional
 
 You can also apply a custom regex on the input type to filter down what you care about more, this is useful if you only care about a certain address or a certain token id or a value over x - anything you wish to filter on which has the same events. This allows you to sync in every direction you wish with unlimited filters on it.
 

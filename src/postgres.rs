@@ -1,6 +1,6 @@
 use tokio_postgres::{Client, Error, NoTls, Row};
 
-use crate::types::{ABIInput, IndexerContractMapping, IndexerPostgresConfig};
+use crate::types::{ABIInput, ABIItem, IndexerContractMapping, IndexerPostgresConfig};
 
 /// A wrapper around `tokio_postgres::Client` for working with PostgreSQL database.
 pub struct PostgresClient {
@@ -108,8 +108,11 @@ async fn create_tables(
             println!("{}", table_sql);
             postgres.execute(&table_sql, &[]).await?;
 
-            println!("Generating indexes, if they exist it will not create");
-            generate_event_table_indexes(postgres, &abi_item.inputs, table_name).await?;
+            if indexer_postgres_config.apply_indexes_before_sync {
+                println!("\x1b[33mYOU ARE CREATING INDEXES BEFORE THE DATA SYNC THIS WILL MAKE IT SLOWER BUT WILL MEAN YOU BE ABLE TO QUERY THE DATA FASTER AS IT RESYNCS!\x1b[0m");
+                println!("Generating indexes, if they exist it will not create");
+                generate_event_table_indexes(postgres, abi_item, table_name).await?;
+            }
         }
     }
     Ok(())
@@ -152,12 +155,12 @@ pub fn solidity_type_to_db_type(abi_type: &str) -> String {
 /// # Returns
 ///
 /// A `Result` indicating success (`Ok(())`) or an error (`Err`) if any occurs during index creation.
-async fn generate_event_table_indexes(
+pub async fn generate_event_table_indexes(
     postgres: &mut PostgresClient,
-    abi_inputs: &[ABIInput],
+    abi_item: &ABIItem,
     table_name: &str,
 ) -> Result<(), Error> {
-    for abi_input in abi_inputs {
+    for abi_input in abi_item.inputs.iter() {
         if abi_input.indexed {
             let event_index_sql = format!(
                 "CREATE INDEX IF NOT EXISTS {}_idx__{} ON {}(\"{}\");",
@@ -182,6 +185,34 @@ async fn generate_event_table_indexes(
                 .execute(&contract_address_event_index_sql, &[])
                 .await?;
             println!("{}", contract_address_event_index_sql);
+        }
+    }
+
+    if let Some(custom_db_indexes) = &abi_item.custom_db_indexes {
+        // apply the custom indexes
+        for custom_db_index in custom_db_indexes {
+            let index_name: String = custom_db_index
+                .iter()
+                .map(|name| name.to_lowercase())
+                .collect::<Vec<String>>()
+                .join("_");
+
+            let index_columns: String = custom_db_index
+                .iter()
+                .map(|name| format!("\"{}\"", name.to_lowercase()))
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            let event_index_sql = format!(
+                "CREATE INDEX IF NOT EXISTS {}_idx__{} ON {}({});",
+                table_name.to_lowercase(),
+                index_name,
+                table_name.to_lowercase(),
+                index_columns
+            );
+
+            postgres.execute(&event_index_sql, &[]).await?;
+            println!("{}", event_index_sql);
         }
     }
 

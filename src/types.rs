@@ -34,6 +34,9 @@ pub struct ABIItem {
 
     /// The name of the ABI item.
     pub name: String,
+
+    // Apply custom indexes to the database
+    pub custom_db_indexes: Option<Vec<Vec<String>>>,
 }
 
 /// Represents a contract mapping in the Indexer.
@@ -53,12 +56,22 @@ pub struct IndexerContractMapping {
     pub decode_abi_items: Vec<ABIItem>,
 }
 
+fn default_false() -> bool {
+    false
+}
+
 /// Represents a contract mapping in the Indexer.
 #[derive(Debug, Deserialize)]
 pub struct IndexerPostgresConfig {
     /// If true, the tables will be dropped and recreated before syncing.
     #[serde(rename = "dropTableBeforeSync")]
     pub drop_tables: bool,
+
+    /// If true, it apply indexes before it syncs which is slower but means
+    /// you can query the data straight away
+    #[serde(rename = "applyIndexesBeforeSync")]
+    #[serde(default = "default_false")]
+    pub apply_indexes_before_sync: bool,
 
     /// The PostgreSQL connection string.
     #[serde(rename = "connectionString")]
