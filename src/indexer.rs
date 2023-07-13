@@ -15,7 +15,7 @@ use uuid::Uuid;
 use crate::{
     csv::{create_csv_writers, CsvWriter},
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    postgres::{init_postgres_db, PostgresClient},
+    postgres::{generate_event_table_indexes, init_postgres_db, PostgresClient},
     provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
 };
@@ -142,6 +142,16 @@ async fn sync_all_states_to_db(
         for abi_item in &mapping.decode_abi_items {
             if let Some(csv_writer) = csv_writers.iter_mut().find(|w| w.name == abi_item.name) {
                 sync_state_to_db(abi_item.name.to_lowercase(), csv_writer, postgres_db).await;
+            }
+
+            if !indexer_config.postgres.apply_indexes_before_sync {
+                println!(
+                    "applying indexes for {}, may take a little while...",
+                    abi_item.name
+                );
+                generate_event_table_indexes(postgres_db, abi_item, &abi_item.name)
+                    .await
+                    .unwrap();
             }
         }
     }
