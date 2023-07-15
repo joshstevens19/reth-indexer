@@ -7,8 +7,8 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::{collections::HashMap, str::FromStr};
 use std::net::SocketAddr;
+use std::{collections::HashMap, str::FromStr};
 use tokio_postgres::{
     types::{FromSql, ToSql, Type},
     Row,
@@ -212,10 +212,7 @@ async fn handler(
                     if db_type == "NUMERIC" {
                         // check it parses as a number
                         Decimal::from_str(value).map_err(|_| {
-                            create_error_response(format!(
-                                "Invalid value for parameter {}",
-                                name
-                            ))
+                            create_error_response(format!("Invalid value for parameter {}", name))
                         })?;
                         let sql_filter: &String =
                             &format!("\"{}\" = CAST('{}' AS NUMERIC)", name, value);
@@ -226,11 +223,7 @@ async fn handler(
                     }
 
                     sql_query_params.push(value as &(dyn ToSql + Sync));
-                    filter_sql.push_str(&format!(
-                        "\"{}\" = ${}",
-                        name,
-                        sql_query_params.len()
-                    ));
+                    filter_sql.push_str(&format!("\"{}\" = ${}", name, sql_query_params.len()));
                 }
             }
 
