@@ -346,10 +346,6 @@ async fn process_block<T: ReceiptProvider + TransactionsProvider + HeaderProvide
             ..block_body_indices.first_tx_num + block_body_indices.tx_count
         {
             if let Some(transaction) = provider.transaction_by_id_no_hash(tx_id).unwrap() {
-                if transaction.to().is_none() {
-                    continue;
-                }
-
                 if let Some(receipt) = provider.receipt(tx_id).unwrap() {
                     let logs: Vec<Log> =
                         if let Some(contract_address) = &mapping.filter_by_contract_addresses {
