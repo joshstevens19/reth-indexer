@@ -50,7 +50,7 @@ impl NodeDb {
     pub fn get_latest_block_number(&self) -> u64 {
         self.reth_db
             .view(|tx| {
-                let headers = tx.inner.open_db(Some(&"Headers".to_string())).unwrap();
+                let headers = tx.inner.open_db(Some("Headers")).unwrap();
 
                 let stats = tx.inner.db_stat(&headers).unwrap();
 

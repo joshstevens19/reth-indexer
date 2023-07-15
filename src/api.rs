@@ -89,9 +89,8 @@ pub async fn start_api(event_mappings: &[IndexerContractMapping], connection_str
     })
     .await;
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3030));
-    println!("reth indexer API started, listening on {addr}");
-    axum::Server::bind(&addr)
+    println!("reth indexer API started, listening on localhost:3030");
+    axum::Server::bind(&SocketAddr::from(([127, 0, 0, 1], 3030)))
         .serve(routes.into_make_service())
         .await
         .expect("reth indexer API failed");

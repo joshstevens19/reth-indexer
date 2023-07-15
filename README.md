@@ -76,10 +76,13 @@ reth-indexer goes block by block using reth db directly searching for any events
 ### Syncing
 
 - git clone this repo on your box - `git clone https://github.com/joshstevens19/reth-indexer.git`
-- create a `reth-indexer-config.json` in the root of the project an example of the structure is in `reth-indexer-config-example.json`, you can use `cp reth-indexer-config-example.json reth-indexer-config.json` to create the file with the template.
-- map your config file (we going through what else property means below)
-- run `RUSTFLAGS="-C target-cpu=native" cargo run --profile maxperf --features jemalloc` to run the indexer
+- create a reth config file example structure is in `reth-indexer-config-example.json`, you can use `cp reth-indexer-config-example.json reth-indexer-config.json` to create the file with the template. Note you can map this config file anywhere but by default it will look for `reth-indexer-config.json` in the root of the project, this can be overwritten with the `CONFIG` flag.
+- map your config file (we going through what all property means below)
+- run `RUSTFLAGS="-C target-cpu=native" CONFIG="./reth-indexer-config.json" cargo run --profile maxperf --features jemalloc` to run the indexer
+  - <strong>notes CONFIG can be replaced with any location you wish as long as it points to the config file</strong>
 - see all the data get synced to your postgres database
+
+TIP: You can use the handy `CONFIG` flag to allow you to run many indexers at the same time side by side in its own process.
 
 #### Advise
 
@@ -90,8 +93,9 @@ reth-indexer goes block by block this means if you put block 0 to an end block i
 You can also run an basic API alongside this which exposes a REST API for you to query the data. This is not meant to be a full blown API but just a simple way to query the data if you wish. This is not required to run the syncing logic. Alongside you can resync data and then load the API up to query the data.
 
 - you need the same mapping as what you synced as that is the source of truth
-- run `RUSTFLAGS="-C target-cpu=native" API=true cargo run --profile maxperf --features jemalloc` to run the api
-- it will expose an endpoints on `127.0.0.1:3030/api/`
+- run `RUSTFLAGS="-C target-cpu=native" API=true CONFIG="./reth-indexer-config.json" cargo run --profile maxperf --features jemalloc` to run the api
+  - <strong>notes CONFIG can be replaced with any location you wish as long as it points to the config file</strong>
+- it will expose an endpoints on `localhost:3030/api/`
   - The rest structure is the name of ABI event name you are calling so:
   ```json
   {
