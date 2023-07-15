@@ -133,9 +133,9 @@ async fn create_tables(
 pub fn solidity_type_to_db_type(abi_type: &str) -> String {
     match abi_type {
         "address" => "CHAR(42)".to_string(),
-        "bool" | "bytes" | "string" => "TEXT".to_string(),
-        "uint8" | "uint16" | "uint32" | "uint64" | "uint128" | "uint256" | "int8" | "int16"
-        | "int32" | "int64" | "int128" | "int256" => "NUMERIC".to_string(),
+        "bool" | "bytes" | "string" | "int256" | "uint256" => "TEXT".to_string(),
+        "uint8" | "uint16" | "uint32" | "uint64" | "uint128" | "int8" | "int16"
+        | "int32" | "int64" | "int128" => "NUMERIC".to_string(),
         _ => panic!("Unsupported type {}", abi_type),
     }
 }
