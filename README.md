@@ -120,9 +120,10 @@ You can also run an basic API alongside this which exposes a REST API for you to
     "type": "event"
   }
   ```
-  - if you wanted data from this event you query `127.0.0.1:3030/api/transfer` and it will return all the data for that event.
-- you can use `limit` to define the amount you want brought back - `127.0.0.1:3030/api/transfer?limit=100`
-- you can use `offset` to page the results - `127.0.0.1:3030/api/transfer?limit=100&offset=100`
+  - if you wanted data from this event you query `localhost:3030/api/transfer` and it will return all the data for that event.
+- you can use `limit` to define the amount you want brought back - `localhost3030/api/transfer?limit=100`
+- you can use `offset` to page the results - `localhost:3030/api/transfer?limit=100&offset=100`
+- you can use `latest` to order the results in ASC(false) or DESC(true) order - `localhost:3030/api/transfer?latest=false` - defaults to true
 - the result of the rest API are dependant on the event ABI you have supplied so it always includes the fields in the ABI input and then the additional fields of `blockNumber`, `txHash`, `blockHash`, `contractAddress`, `indexedId`.
 
 ```json

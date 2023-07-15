@@ -176,12 +176,29 @@ async fn handler(
         .get("offset")
         .unwrap_or(&"0".to_string())
         .parse::<i64>()
-        .map_err(|_| create_error_response("Invalid value for parameter offset".to_string()))?;
+        .map_err(|_| {
+            create_error_response(
+                "Invalid value for parameter offset - must be a number".to_string(),
+            )
+        })?;
     let limit = search_params
         .get("limit")
         .unwrap_or(&"50".to_string())
         .parse::<i64>()
-        .map_err(|_| create_error_response("Invalid value for parameter limit".to_string()))?;
+        .map_err(|_| {
+            create_error_response(
+                "Invalid value for parameter limit - must be a number".to_string(),
+            )
+        })?;
+    let latest = search_params
+        .get("latest")
+        .unwrap_or(&"true".to_string())
+        .parse::<bool>()
+        .map_err(|_| {
+            create_error_response(
+                "Invalid value for parameter latest - must be true or false".to_string(),
+            )
+        })?;
 
     let mut sql_query_params: Vec<&(dyn ToSql + Sync)> = Vec::new();
     sql_query_params.push(&offset as &(dyn ToSql + Sync));
@@ -277,8 +294,14 @@ async fn handler(
     let mut postgres = PostgresClient::new(connection_string).await.unwrap();
 
     let query = format!(
-        "SELECT * FROM {} {} ORDER BY \"timestamp\" OFFSET $1 LIMIT $2",
-        event_name, filter_sql
+        "SELECT * FROM {} {} ORDER BY \"timestamp\" {} OFFSET $1 LIMIT $2",
+        event_name,
+        filter_sql,
+        if latest {
+            "DESC".to_string()
+        } else {
+            "ASC".to_string()
+        }
     );
 
     // println!("Query: {}", query);
