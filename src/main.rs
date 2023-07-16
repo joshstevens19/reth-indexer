@@ -2,7 +2,6 @@ mod api;
 mod csv;
 mod decode_events;
 mod indexer;
-mod node_db;
 mod postgres;
 mod provider;
 mod types;

@@ -6,14 +6,15 @@ use std::{
 
 use log::info;
 use reth_primitives::{Address, BlockHash, Bloom, Header, Log, TransactionSignedNoHash, H256};
-use reth_provider::{BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider};
+use reth_provider::{
+    BlockNumReader, BlockReader, HeaderProvider, ReceiptProvider, TransactionsProvider,
+};
 use reth_rpc_types::{FilteredParams, ValueOrArray};
 use uuid::Uuid;
 
 use crate::{
     csv::{create_csv_writers, CsvWriter},
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    node_db::NodeDb,
     postgres::{generate_event_table_indexes, init_postgres_db, PostgresClient},
     provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
@@ -134,6 +135,7 @@ async fn sync_state_to_db(
 /// * `postgres_db` - A mutable reference to the `PostgresClient` for interacting with the PostgreSQL database.
 async fn sync_all_states_to_db(
     indexer_config: &IndexerConfig,
+    reached_head: bool,
     csv_writers: &mut [CsvWriter],
     postgres_db: &mut PostgresClient,
 ) {
@@ -143,7 +145,7 @@ async fn sync_all_states_to_db(
                 sync_state_to_db(abi_item.name.to_lowercase(), csv_writer, postgres_db).await;
             }
 
-            if !indexer_config.postgres.apply_indexes_before_sync {
+            if !indexer_config.postgres.apply_indexes_before_sync && !reached_head {
                 println!(
                     "applying indexes for {}, may take a little while...",
                     abi_item.name
@@ -198,13 +200,9 @@ pub async fn sync(indexer_config: &IndexerConfig) {
     let mut block_number = indexer_config.from_block;
     let to_block = indexer_config.to_block.unwrap_or(u64::MAX);
 
-    // TODO remove once we can resolve from provider right now it holds cache and breaks
-    let reth_db =
-        NodeDb::new(&indexer_config.reth_db_location).expect("Failed to initialize reth DB");
-
     let factory = get_reth_factory(&indexer_config.reth_db_location)
         .expect("Failed to initialize reth factory");
-    let provider: reth_provider::DatabaseProvider<'_, _> = factory
+    let mut provider: reth_provider::DatabaseProvider<'_, _> = factory
         .provider()
         .expect("Failed to initialize reth provider");
 
@@ -222,24 +220,36 @@ pub async fn sync(indexer_config: &IndexerConfig) {
                 // means it should stay alive when at head
                 if to_block == u64::MAX {
                     if !reached_head {
-                        sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db)
-                            .await;
+                        sync_all_states_to_db(
+                            indexer_config,
+                            reached_head,
+                            &mut csv_writers,
+                            &mut postgres_db,
+                        )
+                        .await;
                         println!("synced all data to postgres, waiting for new blocks and reth-indexer will now index as they come in.");
                         let duration = start.elapsed();
                         println!("Elapsed time: {:.2?}", duration);
                         reached_head = true;
                     }
 
-                    loop {
-                        // TODO remove once we can get the latest block from reth-provider aka it doesnt hold cache
-                        // let latest_block_number = provider.last_block_number().unwrap();
-                        let latest_block_number = reth_db.get_latest_block_number();
-                        info!("latest block number: {}", latest_block_number);
-                        info!("last seen block number: {}", block_number);
+                    // as the block not been seen and its +1 on it we should make sure
+                    // we do not skip a block
+                    let last_seen_block = block_number - 1;
 
-                        if latest_block_number > block_number {
-                            block_number = latest_block_number;
-                            info!("new block to check: {}", latest_block_number);
+                    loop {
+                        // If the db changes we need a new read tx otherwise it will see the old version - that's how MVCC works
+                        provider = factory
+                            .provider()
+                            .expect("Failed to initialize reth provider while awaiting new blocks");
+
+                        let latest_block_number = provider.last_block_number().unwrap();
+                        info!("latest block number: {}", latest_block_number);
+                        info!("last seen block number: {}", last_seen_block);
+
+                        if latest_block_number > last_seen_block {
+                            // block_number already set so break out
+                            println!("new block(s) found check from: {}... last seen: {}... latest block: {}", block_number, last_seen_block, latest_block_number);
                             break;
                         }
 
@@ -248,7 +258,13 @@ pub async fn sync(indexer_config: &IndexerConfig) {
                         thread::sleep(Duration::from_secs(2));
                     }
                 } else {
-                    sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db).await;
+                    sync_all_states_to_db(
+                        indexer_config,
+                        reached_head,
+                        &mut csv_writers,
+                        &mut postgres_db,
+                    )
+                    .await;
                     break;
                 }
             }
@@ -292,8 +308,14 @@ pub async fn sync(indexer_config: &IndexerConfig) {
                 block_number += 1;
                 // if we have reached the head, we want to keep going
                 // if we are higher then the defined block number we write and exist
-                if block_number > to_block || reached_head {
-                    sync_all_states_to_db(indexer_config, &mut csv_writers, &mut postgres_db).await;
+                if block_number == to_block || reached_head {
+                    sync_all_states_to_db(
+                        indexer_config,
+                        reached_head,
+                        &mut csv_writers,
+                        &mut postgres_db,
+                    )
+                    .await;
 
                     // only exit if we have reached the head as it should continue to run and wait for new blocks
                     if !reached_head {
