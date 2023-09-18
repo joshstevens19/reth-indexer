@@ -3,3 +3,4 @@
 *.lck
 *.version
 /reth-indexer-config.json
+/.vscode
