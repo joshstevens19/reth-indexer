@@ -118,7 +118,7 @@ async fn sync_state_to_db(
     );
     info!("executing postgres copy query: {}", copy_query);
     postgres_db.execute(&copy_query, &[]).await.unwrap();
-    csv_writer.reset();
+    // csv_writer.reset();
 }
 
 /// Synchronizes all states from CSV files to the PostgreSQL database.

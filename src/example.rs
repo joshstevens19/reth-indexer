@@ -6,6 +6,7 @@ mod postgres;
 mod provider;
 mod types;
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::{fs::File, io::Read, path::Path};
 use types::{IndexerConfig, IndexerGcpBigQueryConfig};
@@ -13,40 +14,41 @@ use indexmap::{IndexMap};
 
 use phf::{phf_map, phf_ordered_map};
 use std::env;
-use gcp_bigquery_client::{self, error::BQError, dataset::ListOptions, model::{table::Table, table_schema::TableSchema, table_field_schema::TableFieldSchema}};
+use gcp_bigquery_client::{self, error::BQError, dataset::ListOptions, model::{table::Table, table_schema::TableSchema, table_field_schema::TableFieldSchema, table_data_insert_all_request::TableDataInsertAllRequest}};
+use std::iter::zip;
 
+use polars::prelude::*;
 
+use serde_json::Value;
+use uuid::Uuid;
 
-/*
+// 1. read configuration: i.e. table definitions
+// 2. read / define configuration: gcp section
+// 3. delete tables call
+// 4. create tables call (+ create columns vector)
+// 5. read and parse csv columns 
 
-1. read configuration: i.e. table definitions
-2. read / define configuration: gcp section
-3. delete tables call
-4. create tables call (+ create columns vector)
-5. read and parse csv columns 
-
- */
 
 // All column definitions, but eth xfer table
 static ETH_TRANSFER_COLUMNS: phf::OrderedMap<&'static str, &'static str> = phf_ordered_map! {
-    "indexed_id" => "int",
+    "indexed_id" => "string",
     "from" => "string",
     "to" => "string",
     "value" => "int",
     "tx_hash" => "string",
     "block_number" => "int",
-    "block_hash" => "strng",
-    "timestamp" => "string"
+    "block_hash" => "string",
+    "timestamp" => "int"
 };
 
 // Common columns to be added to each contract 
 static COMMON_COLUMNS: phf::OrderedMap<&'static str, &'static str> = phf_ordered_map! {
-    "indexed_id" => "int", 
+    "indexed_id" => "string",  // will need to generate uuid in rust; postgres allows for autogenerate
     "contract_address" => "string",
     "tx_hash" => "string",
     "block_number" => "int",
     "block_hash" => "string",
-    "timestamp" => "string"   
+    "timestamp" => "int"   
 };
 
 
@@ -57,14 +59,148 @@ async fn main() {
 
     // test_static_maps();
     let table_configs: HashMap<String, _> = test_read_config();
-    // test_gcp().await;
+
+
+    println!("table configs: {:?}", table_configs);
     let gcp_config = test_read_config_gcp().unwrap();
 
-    test_ddls(&table_configs, &gcp_config).await; 
 
+    // Drop + create tables, if setting is enabled
+    test_ddls(&table_configs, &gcp_config).await;
+
+
+    let df = test_read_csv_contents();
+    
+    let table_config = table_configs.get("Transfer").expect("Unexpected table name");
+    let vec_of_row_maps = build_row_map_list(&df, &table_config);
+
+    // println!("{:?}", vec_of_row_maps);
+
+    insert_to_gcp_bq(vec_of_row_maps).await;
+
+
+    // test_uuid();
+    // test_ddls(&table_configs, &gcp_config).await; 
     // println!("table_configs: {:?}", table_configs);
     // println!("gcp_config: {:?}", gcp_config);
     // println!("Hello, world!  in Example");
+}
+
+
+async fn insert_to_gcp_bq(
+    vec_of_row_maps: Vec<HashMap<String, Value>>, 
+) {
+
+    let mut insert_request = TableDataInsertAllRequest::new();
+    for row_map in vec_of_row_maps {
+        insert_request.add_row(None, row_map.clone());
+    }
+
+    let project_id = "economic-data-391303";
+    let dataset_id = "reth_index_a";
+    let google_credentials_path = "/Users/jonathanl/.secrets/economic-data-391303-6c338b794579.json";
+
+
+    let client = gcp_bigquery_client::Client::from_service_account_key_file(google_credentials_path).await.unwrap();
+    let result = client.tabledata().insert_all(
+        project_id, dataset_id, "Transfer", insert_request
+    ).await;
+
+    match result {
+        Ok(response) => println!("success?: {:?}", response),
+        Err(response) => println!("Failed, reason: {:?}", response)
+    };
+
+}
+
+/// Convert polars dataframe to list of hashmaps (columns => values)
+/// This will be utilized in the insertion request to GCP
+fn build_row_map_list(df: &DataFrame, table_config: &IndexMap<String, String>) -> Vec<HashMap<String, Value>> {
+
+    let column_names = df.get_column_names();
+    let mut vec_of_maps: Vec<HashMap<String, Value>> = Vec::with_capacity(df.height());
+
+    for idx in 0..df.height() {
+        let mut row_map: HashMap<String, Value> = HashMap::new();
+
+        for name in &column_names {
+            let series = df.column(name).expect("Column should exist");
+            let value = series.get(idx).expect("Value should exist");
+
+            //  Convert from AnyValue (polars) to Value (generic value wrapper)
+            //  The converted-to type is already specified in the inbound configuration
+            let col_type = table_config.get(&name.to_string()).expect("Column should exist");
+            let transformed_value = match col_type.as_str() {
+                "int" => handle_any_value_numeric(&value),
+                "string" => Value::String(value.to_string()),
+                _ => Value::Null
+            };
+
+            row_map.insert(name.clone().into(), transformed_value);
+        }
+
+        vec_of_maps.push(row_map);
+    }
+
+    vec_of_maps
+
+
+}
+
+
+/// Why is this matching / deconstruction so cumbersome?
+fn handle_any_value_numeric(value: &AnyValue) -> Value {
+    match value {
+        AnyValue::Int8(val) => Value::Number(val.clone().into()),
+        AnyValue::Int16(val) => Value::Number(val.clone().into()),
+        AnyValue::Int32(val) => Value::Number(val.clone().into()),
+        AnyValue::Int64(val) => Value::Number(val.clone().into()),
+        AnyValue::UInt8(val) => Value::Number(val.clone().into()),
+        AnyValue::UInt16(val) => Value::Number(val.clone().into()),
+        AnyValue::UInt32(val) => Value::Number(val.clone().into()),
+        AnyValue::UInt64(val) => Value::Number(val.clone().into()),
+        _ => Value::Null
+    }
+}
+
+fn write_df<T>(df: &mut DataFrame, table_configs: &HashMap<String, T>, gcp_config: &IndexerGcpBigQueryConfig) {
+
+    // println!("{:?}", df);
+    // let df_struct = df.into_struct("test");
+    // println!("{:?}", df_struct);
+
+    // let dat: Vec<_> = df_struct.into_iter().map(|s| s).collect();
+    // println!("{:?}", dat);
+
+}
+
+
+fn test_read_csv_contents()  -> DataFrame {
+
+    let contents = CsvReader::from_path("/Users/jonathanl/reth-tmp/data/Transfer.csv").expect("file does not exist")
+        .has_header(true)
+        .finish()
+        .unwrap();
+
+    // let mut rdr = csv::Reader::from_path("/Users/jonathanl/reth-tmp/data/Transfer.csv")?
+    // for result in rdr.records() {
+    //     let record = result;
+    //     println!("{:?}", record);
+    // }
+
+    println!("************************************");
+    println!("{:?}", contents);
+    println!("************************************");
+
+    contents
+}
+
+
+fn test_uuid() {
+
+    let new_uuid = Uuid::new_v4();
+    println!("*** uuid generated: {:?}", new_uuid.to_string());
+
 }
 
 
@@ -114,10 +250,6 @@ async fn test_ddls(
     let project_id = &gcp_config.project_id;
     let dataset_id = &gcp_config.dataset_id;
     let credentials_path = &gcp_config.credentials_path;
-
-    println!("project_id: {}", project_id);
-    println!("dataset_id: {}", dataset_id);
-    println!("credentials_path: {}", credentials_path);
 
     //  Init client
     let client = gcp_bigquery_client::Client::from_service_account_key_file(credentials_path).await.unwrap();
