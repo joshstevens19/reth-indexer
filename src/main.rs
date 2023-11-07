@@ -1,6 +1,7 @@
 mod api;
 mod csv;
 mod decode_events;
+mod gcp_bigquery;
 mod indexer;
 mod postgres;
 mod provider;
