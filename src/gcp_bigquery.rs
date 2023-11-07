@@ -1,7 +1,3 @@
-// mod csv;
-// mod postgres;
-// mod types;
-
 use crate::csv::CsvWriter;
 use crate::types::{
     ABIInput, ABIItem, IndexerConfig, IndexerContractMapping, IndexerGcpBigQueryConfig,
@@ -438,61 +434,3 @@ impl GcpBigQueryClient {
         }
     }
 }
-/*
-///
-/// Returns the loaded `IndexerConfig` if successful.
-/// Panics if the file does not exist or if there is an error reading or parsing the file.
-///
-fn load_indexer_config(file_path: &Path) -> IndexerConfig {
-    let mut file = File::open(file_path)
-        .unwrap_or_else(|_| panic!("Failed to find config file at path - {:?}", file_path));
-
-    let mut content = String::new();
-    file.read_to_string(&mut content)
-        .expect("Failed to read reth-indexer-config.json file");
-
-    let config: IndexerConfig =
-        serde_json::from_str(&content).expect("Failed to parse reth-indexer-config.json JSON");
-
-    config
-}
-
-#[tokio::main]
-async fn main() {
-    let config: String =
-        std::env::var("CONFIG").unwrap_or("./reth-indexer-config.json".to_string());
-    println!("config: {}", config);
-    let mut indexer_config: IndexerConfig = load_indexer_config(Path::new(&config));
-
-    let gcp_bigquery_client = init_gcp_bigquery_db(
-        &indexer_config.gcp_bigquery.unwrap(),
-        &indexer_config.event_mappings,
-    )
-    .await
-    .unwrap();
-
-    println!("******** test 1");
-    println!("{:?}", gcp_bigquery_client.project_id);
-    println!("{:?}", gcp_bigquery_client.dataset_id);
-    println!("{:?}", gcp_bigquery_client.drop_tables);
-    println!("{:?}", gcp_bigquery_client.table_map);
-    println!("***********");
-
-    println!("********* test 2");
-    gcp_bigquery_client.delete_tables().await;
-
-    println!("********* test 3");
-    gcp_bigquery_client.create_tables().await;
-
-    println!("********* test 4");
-    let table_name = String::from("transfer");
-    let dataframe = gcp_bigquery_client.read_csv_contents("~/data/reth-tmp/Transfer.csv");
-    let bq_rowmap_vector = gcp_bigquery_client.build_bigquery_rowmap_vector(
-        &dataframe,
-        &gcp_bigquery_client.table_map[table_name.as_str()],
-    );
-    gcp_bigquery_client
-        .write_rowmaps_to_gcp(table_name.as_str(), &bq_rowmap_vector)
-        .await;
-}
-*/
