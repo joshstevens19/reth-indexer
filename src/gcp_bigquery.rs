@@ -1,8 +1,12 @@
-mod csv;
-mod postgres;
-mod types;
+// mod csv;
+// mod postgres;
+// mod types;
 
-use csv::CsvWriter;
+use crate::csv::CsvWriter;
+use crate::types::{
+    ABIInput, ABIItem, IndexerConfig, IndexerContractMapping, IndexerGcpBigQueryConfig,
+};
+use csv::ReaderBuilder;
 use gcp_bigquery_client::{
     dataset::ListOptions,
     error::BQError,
@@ -13,7 +17,7 @@ use gcp_bigquery_client::{
     Client,
 };
 use indexmap::IndexMap;
-use phf::{phf_map, phf_ordered_map};
+use phf::phf_ordered_map;
 use polars::prelude::*;
 use serde_json::Value;
 use std::any::Any;
@@ -21,7 +25,6 @@ use std::collections::HashMap;
 use std::env;
 use std::iter::zip;
 use std::{fs::File, io::Read, path::Path};
-use types::{ABIInput, ABIItem, IndexerConfig, IndexerContractMapping, IndexerGcpBigQueryConfig};
 
 /// Columns common to all tables
 /// Each table's columns will include the following commmon fields
@@ -35,7 +38,8 @@ static COMMON_COLUMNS: phf::OrderedMap<&'static str, &'static str> = phf_ordered
     "timestamp" => "int"
 };
 
-// -- Query Client --
+/// Query client
+/// Impl for this struct is further below
 pub struct GcpBigQueryClient {
     client: Client,
     project_id: String,
@@ -51,16 +55,37 @@ pub enum GcpClientError {
     BigQueryError(BQError),
 }
 
+///
+/// Factory function to initialize the GCP bigquery client
+/// Also deletes / creates tables as necessary (controlled via setting)
+///
+/// # Arguments
+///
+/// * `indexer_gcp_bigquery_config` - gcp config block
+/// * `event_mappings` - list of event mapping blocks (all events to parse)
 pub async fn init_gcp_bigquery_db(
     indexer_gcp_bigquery_config: &IndexerGcpBigQueryConfig,
     event_mappings: &[IndexerContractMapping],
 ) -> Result<GcpBigQueryClient, GcpClientError> {
-    let mut gcp_bigquery =
-        GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings).await;
+    let mut gcp_bigquery = GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings)
+        .await
+        .unwrap();
 
-    gcp_bigquery
+    gcp_bigquery.delete_tables().await;
+    gcp_bigquery.create_tables().await;
+
+    Ok(gcp_bigquery)
 }
 
+///
+/// This function merges the common columns specified in COMMON_COLUMNS with the
+/// columns specified in the reth-indexer-config file for the particular event type to parse
+/// The types are ordered to allow for consistent column order within the GCP tables
+/// This is done for each table specified in the indexer
+///
+/// # Arguments
+///
+/// * `indexer_event_mappings` - list of all event mappings
 pub fn load_table_configs(
     indexer_event_mappings: &[IndexerContractMapping],
 ) -> HashMap<String, IndexMap<String, String>> {
@@ -82,7 +107,7 @@ pub fn load_table_configs(
                 })
                 .collect();
 
-            let common_column_type_map: HashMap<String, String> = COMMON_COLUMNS
+            let common_column_type_map: IndexMap<String, String> = COMMON_COLUMNS
                 .into_iter()
                 .map(|it| (it.0.to_string(), it.1.to_string()))
                 .collect();
@@ -99,8 +124,14 @@ pub fn load_table_configs(
     all_tables
 }
 
-///  Maps solidity types (in indexer config) to bigquery column types
-///  
+///
+/// Maps solidity types (in indexer config) to bigquery column types
+/// The configuration / reth uses solidity types, we map these to types that we'll use in GCP
+/// bigquery
+///
+/// # Arguments
+///
+/// * `abi_type` - the ABI type, specified as a string
 fn solidity_type_to_db_type(abi_type: &str) -> &str {
     match abi_type {
         "address" => "string",
@@ -112,6 +143,7 @@ fn solidity_type_to_db_type(abi_type: &str) -> &str {
 }
 
 impl GcpBigQueryClient {
+    ///
     /// Creates a new GcpBigQueryClient, which includes the connection to the GCP bigquery instance
     /// As well as project / dataset settings.
     /// Instance methods encapsulate all utilized behavior (create, delete, insertion/sync)
@@ -144,6 +176,9 @@ impl GcpBigQueryClient {
         }
     }
 
+    ///
+    /// Deletes tables from GCP bigquery, if they exist
+    /// Tables are only deleted if the configuration has specified drop_table
     pub async fn delete_tables(&self) {
         if self.drop_tables {
             for table_name in self.table_map.keys() {
@@ -170,8 +205,7 @@ impl GcpBigQueryClient {
     }
 
     ///
-    /// Iterates through all defined tables, calls create_table on each
-    ///
+    /// Iterates through all defined tables, calls create_table on each table
     pub async fn create_tables(&self) {
         for (table_name, column_map) in self.table_map.iter() {
             self.create_table(table_name, column_map).await;
@@ -179,8 +213,12 @@ impl GcpBigQueryClient {
     }
 
     ///
-    /// Create a single table in GCP BQ
+    /// Create a single table in GCP bigquery, from configured datatypes
     ///
+    /// # Arguments
+    ///
+    /// * `table_name` - name of table
+    /// * `column_map` - map of column names to types
     pub async fn create_table(&self, table_name: &str, column_map: &IndexMap<String, String>) {
         let dataset_ref = self
             .client
@@ -236,25 +274,64 @@ impl GcpBigQueryClient {
     ///
     ///  Given CsvWriter object (which indexer writes to / manages)
     ///  Extract and write to GCP bigquery storage
-    pub async fn write_csv_to_storage(&self, table_name: String, csv_writer: &CsvWriter) {
-        let dataframe = self.read_csv_contents(csv_writer.path());
+    ///
+    ///  # Arguments
+    ///
+    ///  * `table_name` - name of table for dataset
+    ///  * `csv_writer` - csv writer reference
+    pub async fn write_csv_to_storage(&self, table_name: &str, csv_writer: &CsvWriter) {
+        let dataframe = self.read_csv_contents(table_name, csv_writer.path());
         let bq_rowmap_vector =
-            self.build_bigquery_rowmap_vector(&dataframe, &self.table_map[table_name.as_str()]);
-        self.write_rowmaps_to_gcp(table_name.as_str(), &bq_rowmap_vector)
+            self.build_bigquery_rowmap_vector(&dataframe, &self.table_map[table_name]);
+        self.write_rowmaps_to_gcp(table_name, &bq_rowmap_vector)
             .await;
     }
 
-    /// read CSV
-    pub fn read_csv_contents(&self, path: &str) -> DataFrame {
+    ///
+    /// Read CSV
+    /// Return dataframe, transform to vector and write to GCP
+    ///
+    /// # Arguments
+    ///
+    /// * `table_name` - name of table for dataset
+    /// * `path` - path to csv file
+    pub fn read_csv_contents(&self, table_name: &str, path: &str) -> DataFrame {
+        //  Get list of columns in order, from csv file
+        let file = File::open(path).unwrap();
+        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let headers = rdr.headers().unwrap();
+        let column_names: Vec<String> = headers.iter().map(String::from).collect();
+
+        //  Build column data types for polars dataframe, from column mapping
+        let column_map = &self.table_map[table_name];
+        let plr_col_types = Some(Arc::new(
+            column_names
+                .iter()
+                .map(|name| match column_map[name].as_str() {
+                    "int" => Field::new(name, DataType::Int64),
+                    "string" => Field::new(name, DataType::Utf8),
+                    _ => panic!("incompatible type found"),
+                })
+                .collect(),
+        ));
+
+        //  Read polars dataframe, w/ specified schema
         CsvReader::from_path(path)
             .expect("file does not exist")
             .has_header(true)
+            .with_schema(plr_col_types)
             .finish()
             .unwrap()
     }
 
     ///
-    /// Insertion into bigquery, will
+    /// Constructs GCP bigquery rows for insertion into gcp tables
+    /// The writer will write vector of all rows into dataset
+    ///
+    /// # Arguments
+    ///
+    /// * `df` - dataframe
+    /// * `table_config` - column to type mapping for table being written to
     ///
     pub fn build_bigquery_rowmap_vector(
         &self,
@@ -292,9 +369,13 @@ impl GcpBigQueryClient {
     }
 
     ///
-    ///  Write vector of rowmaps into GCP.  Construct bulk insertion request and
-    ///  and insert into target remote table
+    /// Write vector of rowmaps into GCP.  Construct bulk insertion request and
+    /// and insert into target remote table
     ///
+    /// # Arguments
+    ///
+    /// * `table_name` - name of table being operated upon / written to
+    /// * `vec_of_rowmaps` - vector of rowmap objects to facilitate write
     pub async fn write_rowmaps_to_gcp(
         &self,
         table_name: &str,
@@ -325,6 +406,10 @@ impl GcpBigQueryClient {
     ///
     ///  Maps converted column types and constructs bigquery column
     ///
+    /// # Arguments
+    ///
+    /// * `db_type` - stored datatype configured for this column
+    /// * `name` - name of column
     pub fn db_type_to_table_field_schema(db_type: &str, name: &str) -> TableFieldSchema {
         match db_type {
             "int" => TableFieldSchema::integer(name),
@@ -336,6 +421,9 @@ impl GcpBigQueryClient {
     ///
     ///  Converts AnyValue types to numeric types used in GCP api
     ///
+    /// # Arguments
+    ///
+    /// * `value` - value and type
     pub fn bigquery_anyvalue_numeric_type(value: &AnyValue) -> Value {
         match value {
             AnyValue::Int8(val) => Value::Number(val.clone().into()),
@@ -350,7 +438,7 @@ impl GcpBigQueryClient {
         }
     }
 }
-
+/*
 ///
 /// Returns the loaded `IndexerConfig` if successful.
 /// Panics if the file does not exist or if there is an error reading or parsing the file.
@@ -407,3 +495,4 @@ async fn main() {
         .write_rowmaps_to_gcp(table_name.as_str(), &bq_rowmap_vector)
         .await;
 }
+*/
