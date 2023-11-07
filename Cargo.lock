@@ -3338,6 +3338,7 @@ dependencies = [
  "jemallocator",
  "lazy_static",
  "log",
+ "once_cell",
  "phf",
  "polars",
  "rayon",
