@@ -1,7 +1,9 @@
 use crate::csv::CsvWriter;
+use crate::datasource::DatasourceWritable;
 use crate::types::{
     ABIInput, ABIItem, IndexerConfig, IndexerContractMapping, IndexerGcpBigQueryConfig,
 };
+use async_trait::async_trait;
 use csv::ReaderBuilder;
 use gcp_bigquery_client::{
     dataset::ListOptions,
@@ -432,5 +434,20 @@ impl GcpBigQueryClient {
             AnyValue::UInt64(val) => Value::Number(val.clone().into()),
             _ => Value::Null,
         }
+    }
+}
+
+///
+/// Implements DatasourceWritable wrapper
+/// Allows all writers to be treated uniformly
+#[async_trait]
+impl DatasourceWritable for GcpBigQueryClient {
+    async fn write_data(&self, table_name: &str, csv_writer: &CsvWriter) {
+        println!("   writing / sync bigquery table: {:?}", table_name);
+        self.write_csv_to_storage(table_name, csv_writer).await;
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

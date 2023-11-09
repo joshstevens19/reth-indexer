@@ -43,6 +43,7 @@ serde_with = "3.3.0"
 polars = { version = "0.33.0", features = ["dtype-datetime", "lazy", "describe", "serde", "json", "temporal"]}
 chrono = "0.4.31"
 once_cell = "1.18.0"
+async-trait = "0.1.74"
 
 [profile.maxperf]
 inherits = "release"

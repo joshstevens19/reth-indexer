@@ -80,7 +80,6 @@ pub struct IndexerPostgresConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct IndexerGcpBigQueryConfig {
-
     #[serde(rename = "dropTableBeforeSync")]
     // #[serde(skip_serializing_if = "Option::is_none")]
     pub drop_tables: bool,
@@ -95,7 +94,7 @@ pub struct IndexerGcpBigQueryConfig {
 
     #[serde(rename = "credentialsPath")]
     // #[serde(skip_serializing_if = "Option::is_none")]
-    pub credentials_path: String
+    pub credentials_path: String,
 }
 
 /// Represents the configuration for the Indexer.
@@ -122,7 +121,7 @@ pub struct IndexerConfig {
     pub to_block: Option<u64>,
 
     /// The postgres configuration.
-    pub postgres: IndexerPostgresConfig,
+    pub postgres: Option<IndexerPostgresConfig>,
 
     /// GCP configuration, if exists
     #[serde(rename = "gcpBigQuery", skip_serializing_if = "Option::is_none")]
