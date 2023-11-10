@@ -1,12 +1,11 @@
-use crate::csv::CsvWriter;
-use crate::datasource::DatasourceWritable;
-use crate::types::{
-    ABIInput, ABIItem, IndexerConfig, IndexerContractMapping, IndexerGcpBigQueryConfig,
+use crate::{
+    csv::CsvWriter,
+    datasource::DatasourceWritable,
+    types::{IndexerContractMapping, IndexerGcpBigQueryConfig},
 };
 use async_trait::async_trait;
 use csv::ReaderBuilder;
 use gcp_bigquery_client::{
-    dataset::ListOptions,
     error::BQError,
     model::{
         table::Table, table_data_insert_all_request::TableDataInsertAllRequest,
@@ -18,12 +17,9 @@ use indexmap::IndexMap;
 use phf::phf_ordered_map;
 use polars::prelude::*;
 use serde_json::Value;
-use std::any::Any;
-use std::collections::HashMap;
-use std::env;
-use std::iter::zip;
-use std::{fs::File, io::Read, path::Path};
+use std::{any::Any, collections::HashMap, fs::File};
 
+///
 /// Columns common to all tables
 /// Each table's columns will include the following commmon fields
 ///
@@ -65,7 +61,7 @@ pub async fn init_gcp_bigquery_db(
     indexer_gcp_bigquery_config: &IndexerGcpBigQueryConfig,
     event_mappings: &[IndexerContractMapping],
 ) -> Result<GcpBigQueryClient, GcpClientError> {
-    let mut gcp_bigquery = GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings)
+    let gcp_bigquery = GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings)
         .await
         .unwrap();
 
@@ -194,7 +190,7 @@ impl GcpBigQueryClient {
                     Ok(table) => {
                         // Delete table, since it exists
                         println!("deleting table: {table_name}");
-                        table.delete(&self.client).await;
+                        let _ = table.delete(&self.client).await;
                     }
                     Err(..) => {}
                 }
@@ -252,7 +248,7 @@ impl GcpBigQueryClient {
                     .collect();
 
                 let dataset = &mut dataset_ref.as_ref().unwrap();
-                let result = dataset
+                let _ = dataset
                     .create_table(
                         &self.client,
                         Table::new(
@@ -381,7 +377,7 @@ impl GcpBigQueryClient {
     ) {
         let mut insert_request = TableDataInsertAllRequest::new();
         for row_map in vec_of_rowmaps {
-            insert_request.add_row(None, row_map.clone());
+            let _ = insert_request.add_row(None, row_map.clone());
         }
 
         let result = self

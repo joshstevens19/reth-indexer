@@ -16,7 +16,7 @@ use crate::{
     csv::{create_csv_writers, CsvWriter},
     datasource::DatasourceWritable,
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
-    gcp_bigquery::{init_gcp_bigquery_db, GcpBigQueryClient},
+    gcp_bigquery::init_gcp_bigquery_db,
     postgres::{generate_event_table_indexes, init_postgres_db, PostgresClient},
     provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
