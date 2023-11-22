@@ -205,6 +205,10 @@ pub async fn init_datasource_writers(
         writers.push(Box::new(bigquery_db_client));
     }
 
+    if writers.len() < 1 {
+        panic!("Must have at least one configured indexer datastore to run indexer");
+    }
+
     writers
 }
 

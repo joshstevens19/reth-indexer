@@ -48,7 +48,7 @@ async fn main() {
     let indexer_config: IndexerConfig = load_indexer_config(Path::new(&config));
 
     if api_only {
-        start_api(&indexer_config.event_mappings, &indexer_config.postgres).await;
+        start_api(&indexer_config).await;
     } else {
         sync(&indexer_config).await;
     }

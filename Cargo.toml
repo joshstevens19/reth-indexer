@@ -3,14 +3,6 @@ name = "reth-database-reader"
 version = "0.1.0"
 edition = "2021"
 
-#[[bin]]
-#name = "example"
-#path = "src/example.rs"
-
-#[[bin]]
-#name = "gcp-bigquery"
-#path = "src/gcp_bigquery.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     postgres::{solidity_type_to_db_type, PostgresClient},
-    types::{IndexerContractMapping, IndexerPostgresConfig},
+    types::{IndexerConfig, IndexerContractMapping, IndexerPostgresConfig},
 };
 
 #[derive(Debug, serde::Serialize, Deserialize)]
@@ -80,27 +80,26 @@ async fn routes(state: AppState) -> Router {
 ///
 /// # Arguments
 ///
-/// * `event_mappings` - A vector of `IndexerContractMapping` representing the event mappings.
-/// * `connection_string` - The connection string for the database.
-pub async fn start_api(
-    event_mappings: &[IndexerContractMapping],
-    indexer_postgres_config: &Option<IndexerPostgresConfig>,
-) {
-    // TODO: api should be able to accommodate different sources, but currently only for postgres
+/// * `indexer_config` - the parsed config for the indexer
+pub async fn start_api(indexer_config: &IndexerConfig) {
     // Only initialize server if there is a postgres indexer configured
+    match &indexer_config.postgres {
+        None => {
+            panic!("API server can only be started with postgres indexer config");
+        }
+        Some(postgres_config) => {
+            let routes = routes(AppState {
+                connection_string: postgres_config.connection_string.to_string(),
+                event_mappings: indexer_config.event_mappings.to_vec(),
+            })
+            .await;
 
-    if let Some(postgres_config) = indexer_postgres_config {
-        let routes = routes(AppState {
-            connection_string: postgres_config.connection_string.to_string(),
-            event_mappings: event_mappings.to_vec(),
-        })
-        .await;
-
-        println!("reth indexer API started, listening on localhost:3030");
-        axum::Server::bind(&SocketAddr::from(([127, 0, 0, 1], 3030)))
-            .serve(routes.into_make_service())
-            .await
-            .expect("reth indexer API failed");
+            println!("reth indexer API started, listening on localhost:3030");
+            axum::Server::bind(&SocketAddr::from(([127, 0, 0, 1], 3030)))
+                .serve(routes.into_make_service())
+                .await
+                .expect("reth indexer API failed");
+        }
     }
 }
 

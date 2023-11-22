@@ -248,7 +248,7 @@ impl GcpBigQueryClient {
                     .collect();
 
                 let dataset = &mut dataset_ref.as_ref().unwrap();
-                let _ = dataset
+                let res = dataset
                     .create_table(
                         &self.client,
                         Table::new(
@@ -260,7 +260,14 @@ impl GcpBigQueryClient {
                     )
                     .await;
 
-                println!("Created table in gcp: {}", table_name);
+                match res {
+                    Ok(_) => {
+                        println!("Created table in gcp: {}", table_name);
+                    }
+                    Err(err) => {
+                        panic!("Failed to create table: {}, reason: {:?}", table_name, err);
+                    }
+                }
             }
         }
     }
