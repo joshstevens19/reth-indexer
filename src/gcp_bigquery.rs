@@ -17,7 +17,7 @@ use indexmap::IndexMap;
 use phf::phf_ordered_map;
 use polars::prelude::*;
 use serde_json::Value;
-use std::{any::Any, collections::HashMap, fs::File};
+use std::{any::Any, collections::HashMap, error::Error, fs::File};
 
 ///
 /// Columns common to all tables
@@ -61,12 +61,24 @@ pub async fn init_gcp_bigquery_db(
     indexer_gcp_bigquery_config: &IndexerGcpBigQueryConfig,
     event_mappings: &[IndexerContractMapping],
 ) -> Result<GcpBigQueryClient, GcpClientError> {
-    let gcp_bigquery = GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings)
-        .await
-        .unwrap();
+    let gcp_bigquery =
+        GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings).await?;
 
-    gcp_bigquery.delete_tables().await;
-    gcp_bigquery.create_tables().await;
+    // Drop table iff drop_table property is true
+    if indexer_gcp_bigquery_config.drop_tables {
+        let res = gcp_bigquery.delete_tables().await;
+        match res {
+            Ok(..) => {}
+            Err(err) => return Err(GcpClientError::BigQueryError(err)),
+        }
+    }
+
+    // Create - will create if tables do not exist
+    let res = gcp_bigquery.create_tables().await;
+    match res {
+        Ok(..) => {}
+        Err(err) => return Err(GcpClientError::BigQueryError(err)),
+    }
 
     Ok(gcp_bigquery)
 }
@@ -173,7 +185,7 @@ impl GcpBigQueryClient {
     ///
     /// Deletes tables from GCP bigquery, if they exist
     /// Tables are only deleted if the configuration has specified drop_table
-    pub async fn delete_tables(&self) {
+    pub async fn delete_tables(&self) -> Result<(), BQError> {
         if self.drop_tables {
             for table_name in self.table_map.keys() {
                 let table_ref = self
@@ -189,21 +201,34 @@ impl GcpBigQueryClient {
                 match table_ref {
                     Ok(table) => {
                         // Delete table, since it exists
-                        println!("deleting table: {table_name}");
-                        let _ = table.delete(&self.client).await;
+                        let res = table.delete(&self.client).await;
+                        match res {
+                            Err(err) => {
+                                return Err(err);
+                            }
+                            Ok(_) => println!("Removed table: {}", table_name),
+                        }
                     }
+                    // Table DNE, do nothing
                     Err(..) => {}
                 }
             }
         }
+
+        Ok(())
     }
 
     ///
     /// Iterates through all defined tables, calls create_table on each table
-    pub async fn create_tables(&self) {
+    pub async fn create_tables(&self) -> Result<(), BQError> {
         for (table_name, column_map) in self.table_map.iter() {
-            self.create_table(table_name, column_map).await;
+            let res = self.create_table(table_name, column_map).await;
+            match res {
+                Ok(..) => {}
+                Err(err) => return Err(err),
+            }
         }
+        Ok(())
     }
 
     ///
@@ -213,7 +238,11 @@ impl GcpBigQueryClient {
     ///
     /// * `table_name` - name of table
     /// * `column_map` - map of column names to types
-    pub async fn create_table(&self, table_name: &str, column_map: &IndexMap<String, String>) {
+    pub async fn create_table(
+        &self,
+        table_name: &str,
+        column_map: &IndexMap<String, String>,
+    ) -> Result<(), BQError> {
         let dataset_ref = self
             .client
             .dataset()
@@ -233,6 +262,7 @@ impl GcpBigQueryClient {
         match table_ref {
             Ok(..) => {
                 println!("Table {table_name} already exists, skip creation.");
+                return Ok(());
             }
             Err(..) => {
                 // Table does not exist (err), create
@@ -264,12 +294,11 @@ impl GcpBigQueryClient {
                     Ok(_) => {
                         println!("Created table in gcp: {}", table_name);
                     }
-                    Err(err) => {
-                        panic!("Failed to create table: {}, reason: {:?}", table_name, err);
-                    }
+                    Err(err) => return Err(err),
                 }
             }
         }
+        Ok(())
     }
 
     ///
