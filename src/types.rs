@@ -78,25 +78,6 @@ pub struct IndexerPostgresConfig {
     pub connection_string: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct IndexerGcpBigQueryConfig {
-    #[serde(rename = "dropTableBeforeSync")]
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    pub drop_tables: bool,
-
-    #[serde(rename = "projectId")]
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    pub project_id: String,
-
-    #[serde(rename = "datasetId")]
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    pub dataset_id: String,
-
-    #[serde(rename = "credentialsPath")]
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    pub credentials_path: String,
-}
-
 /// Represents the configuration for the Indexer.
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
@@ -121,11 +102,7 @@ pub struct IndexerConfig {
     pub to_block: Option<u64>,
 
     /// The postgres configuration.
-    pub postgres: Option<IndexerPostgresConfig>,
-
-    /// GCP configuration, if exists
-    #[serde(rename = "gcpBigQuery", skip_serializing_if = "Option::is_none")]
-    pub gcp_bigquery: Option<IndexerGcpBigQueryConfig>,
+    pub postgres: IndexerPostgresConfig,
 
     /// The list of contract mappings.
     #[serde(rename = "eventMappings")]

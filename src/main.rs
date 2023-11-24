@@ -1,8 +1,6 @@
 mod api;
 mod csv;
-mod datasource;
 mod decode_events;
-mod gcp_bigquery;
 mod indexer;
 mod postgres;
 mod provider;
@@ -48,7 +46,11 @@ async fn main() {
     let indexer_config: IndexerConfig = load_indexer_config(Path::new(&config));
 
     if api_only {
-        start_api(&indexer_config).await;
+        start_api(
+            &indexer_config.event_mappings,
+            &indexer_config.postgres.connection_string,
+        )
+        .await;
     } else {
         sync(&indexer_config).await;
     }
