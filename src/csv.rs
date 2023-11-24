@@ -99,17 +99,25 @@ fn csv_event_columns(abi_item: &ABIItem) -> Vec<String> {
     let mut sorted_inputs = abi_item.inputs.clone();
     sorted_inputs.sort_by_key(|input| !input.indexed); // Sort by indexed field in descending order
 
-    let columns = sorted_inputs
+    let columns_prefix = vec![
+        "indexed_id".to_string(), // the column in database created is "indexed_id", not "record_id"
+        "contract_address".to_string(),
+    ];
+    let columns_suffix = vec![
+        "tx_hash".to_string(),
+        "block_number".to_string(),
+        "block_hash".to_string(),
+        "timestamp".to_string(),
+    ];
+    let columns_abi: Vec<String> = sorted_inputs
         .iter()
         .map(|input| input.name.clone())
-        .chain(vec![
-            "record_id".to_string(),
-            "contract_address".to_string(),
-            "tx_hash".to_string(),
-            "block_number".to_string(),
-            "block_hash".to_string(),
-            "timestamp".to_string(),
-        ])
+        .collect();
+
+    let columns = columns_prefix
+        .into_iter()
+        .chain(columns_abi)
+        .chain(columns_suffix)
         .collect();
 
     columns

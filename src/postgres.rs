@@ -1,6 +1,9 @@
-use tokio_postgres::{Client, Error, NoTls, Row};
-
+use crate::csv::CsvWriter;
+use crate::datasource::DatasourceWritable;
 use crate::types::{ABIInput, ABIItem, IndexerContractMapping, IndexerPostgresConfig};
+use async_trait::async_trait;
+use std::any::Any;
+use tokio_postgres::{Client, Error, NoTls, Row};
 
 /// A wrapper around `tokio_postgres::Client` for working with PostgreSQL database.
 pub struct PostgresClient {
@@ -156,7 +159,7 @@ pub fn solidity_type_to_db_type(abi_type: &str) -> String {
 ///
 /// A `Result` indicating success (`Ok(())`) or an error (`Err`) if any occurs during index creation.
 pub async fn generate_event_table_indexes(
-    postgres: &mut PostgresClient,
+    postgres: &PostgresClient,
     abi_item: &ABIItem,
     table_name: &str,
 ) -> Result<(), Error> {
@@ -286,7 +289,7 @@ impl PostgresClient {
     ///
     /// Returns a `Result` containing the number of rows affected by the query, or an `Error` if an error occurs.
     pub async fn execute<T>(
-        &mut self,
+        &self,
         query: &T,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<u64, Error>
@@ -322,5 +325,24 @@ impl PostgresClient {
         self.client
             .execute(&format!("DROP TABLE IF EXISTS {}; ", table_name), &[])
             .await
+    }
+}
+
+///
+/// Implement DatasourceWritable wrapper / trait
+#[async_trait]
+impl DatasourceWritable for PostgresClient {
+    async fn write_data(&self, table_name: &str, csv_writer: &CsvWriter) {
+        println!("   writing / sync postgres table: {:?}", table_name);
+        let copy_query = format!(
+            "COPY {} FROM '{}' DELIMITER ',' CSV HEADER",
+            table_name,
+            csv_writer.path()
+        );
+        self.execute(&copy_query, &[]).await.unwrap();
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

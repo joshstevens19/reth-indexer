@@ -1,6 +1,6 @@
 # reth-indexer
 
-reth-indexer reads directly from the reth db and indexes the data into a postgres database all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
+reth-indexer reads directly from the reth db and indexes the data into traditional and alternative databases / datastores (postgres, GCP bigquery, etc) all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
 
 <img src="./assets/demo.gif" />
 
@@ -14,25 +14,27 @@ If you want to get data from the chain you tend to have to use a provider like i
 
 If you wish to build a big data lake or even just fetch dynamic events from the chain this task is near impossible without a third party paid tool or something like thegraph hoster services and most do not let you pull in millions of rows at a time fast. This data should be able to be fetched for free, blazing fast and customisable to your needs. This is what reth-indexer does.
 
-This project aims to solve this by reading directly from the reth node db and indexing the data into a postgres database you can then query fast with indexes already applied for you. You can also scale this easily by running multiple instances of this program on different boxes and pointing them at the same postgres database (we should build that in the tool directly).
+This project aims to solve this by reading directly from the reth node db and indexing the data into traditional databases that you can then query fast with indexes already applied for you. You can also scale this easily by running multiple instances of this program on different boxes and pointing them at the same underlying database (we should build that in the tool directly).
 
 This tool is perfect for all kinds of people from developers, to data anaylsis, to ML developers to anyone who wants to just get a snapshot of event data and use it in a production app or just for their own reports.
 
 ## Features
 
-- Creates postgres tables for you automatically
+- Creates database tables for you automatically (postgres, gcp biquery, or others)
 - Creates indexes on the tables for you automatically to allow you to query the data fast
+- Can write index to multiple data stores (i.e. postgres, gcp bigquery, etc)
 - Indexes any events from the reth node db
 - Supports indexing any events from multiple contracts or all contracts at the same time
 - Supports filtering even on the single input types so allowing you to filter on every element of the event
 - Snapshot between from and to block numbers
 - No code required it is all driven by a json config file that is easy to edit and understand
-- Created on your own infurstructure so you can scale it as you wish
-- Exposes a ready to go API for you to query the data
+- Created on your own infrastructure so you can scale it as you wish
+- Exposes a ready to go API for you to query the data (postgres implementation only at this time)
+- Abstractions to allow for extension of this indexer to different databases / datastores
 
 ## Benchmarks
 
-Very hard to benchmark as it is all down to the block range and how often your event is emitted but roughly: (most likely could be speed up with more some optimisations.)
+Very hard to benchmark as it is all down to the block range and how often your event is emitted but roughly: (most likely could be speed up with more some optimisations).  Note this applies only to the postgres database write.
 
 - indexes around 30,000 events a second (depending on how far away the events are in each block)
 - scans around 10,000 blocks which have no events within 400ms using blooms
@@ -40,6 +42,7 @@ Very hard to benchmark as it is all down to the block range and how often your e
 ### Head to head
 
 Only compared what I can right now but happy for others to do head to head
+Note: this applies to reth-indexer indexing to local postgres database
 
 providers:
 
@@ -65,11 +68,13 @@ This right now it is just focusing on indexing events it does not currently inde
 ## Requirements
 
 - This must be ran on the same box and the reth node is running
-- You must have a postgres database running on the box
+- You must have a postgres database running on the box (note: this applies only if writing to the postgres database)
 
 ## How it works
 
-reth-indexer goes block by block using reth db directly searching for any events that match the event mappings you have supplied in the config file. It then writes the data to a csv file and then bulk copies the data into the postgres database. It uses blooms to disregard blocks it does not need to care about. It uses CSVs and the postgres `COPY` syntax as that can write thousands of records a second bypassing some of the processing and logging overhead associated with individual `INSERT` statements, when you are dealing with big data this is a really nice optimisation.
+reth-indexer goes block by block using reth db directly searching for any events that match the event mappings you have supplied in the config file. It then writes the data to a csv file and then bulk copies the data into the postgres database (or other databases, as configured). It uses blooms to disregard blocks it does not need to care about. It uses CSVs and the postgres `COPY` syntax as that can write thousands of records a second bypassing some of the processing and logging overhead associated with individual `INSERT` statements, when you are dealing with big data this is a really nice optimisation.
+
+The database write optimizations (i.e. CSV copy) apply mainly to the postgres database (and potentially other locally-running databases).  Other databases / datasources, and in particular remote / cloud databases may not have this optimization built-in.
 
 ## How to use
 
@@ -189,7 +194,7 @@ The block number to stop indexing at, if you want to a live indexer leave it bla
 
 example: `"toBlockNumber": 17569794,`
 
-### postgres - required
+### postgres - optional (only if writing to postgres database)
 
 Holds the postgres connection and settings info
 
@@ -219,6 +224,37 @@ example: `"applyIndexesBeforeSync": true,`
 The connection string to connect to the postgres database.
 
 example: `"connectionString": "postgresql://postgres:password@localhost:5432/reth_indexer"`
+
+### gcpBigQuery - optional (only if writing to gcp bigquery)
+
+Holds the GCP bigquery connection and settings info
+
+example:
+
+```json
+"gcpBigQuery": {
+    "dropTableBeforeSync": true,
+    "projectId": "my-bigquery-project-123456",
+    "datasetId": "reth_index_a",
+    "credentialsPath": "/path/to/gcp/credentials/file.json"
+}
+```
+
+#### dropTableBefore Sync - required
+
+if true, will drop and re-create all tables at the beginning of the sync process
+
+#### projectId
+
+GCP project id - contains multiple GCP products grouped under a single project
+
+#### datasetId
+
+GCP bigquery dataset id (i.e. database / schema)
+
+#### credentialsPath
+
+Path to GCP credentials file (JSON) - this would contain the executing user / account credentials within GCP environment
 
 ### eventMappings
 
