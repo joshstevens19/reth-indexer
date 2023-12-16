@@ -17,7 +17,7 @@ use indexmap::IndexMap;
 use phf::phf_ordered_map;
 use polars::prelude::*;
 use serde_json::Value;
-use std::{any::Any, collections::HashMap, error::Error, fs::File};
+use std::{any::Any, collections::HashMap, fs::File};
 
 ///
 /// Columns common to all tables
@@ -44,8 +44,6 @@ pub struct GcpBigQueryClient {
 
 #[derive(Debug)]
 pub enum GcpClientError {
-    MissingParameters,
-    Other(String),
     BigQueryError(BQError),
 }
 
@@ -61,8 +59,7 @@ pub async fn init_gcp_bigquery_db(
     indexer_gcp_bigquery_config: &IndexerGcpBigQueryConfig,
     event_mappings: &[IndexerContractMapping],
 ) -> Result<GcpBigQueryClient, GcpClientError> {
-    let gcp_bigquery =
-        GcpBigQueryClient::new(&indexer_gcp_bigquery_config, &event_mappings).await?;
+    let gcp_bigquery = GcpBigQueryClient::new(indexer_gcp_bigquery_config, event_mappings).await?;
 
     // Drop table iff drop_table property is true
     if indexer_gcp_bigquery_config.drop_tables {
@@ -198,19 +195,16 @@ impl GcpBigQueryClient {
                         None,
                     )
                     .await;
-                match table_ref {
-                    Ok(table) => {
-                        // Delete table, since it exists
-                        let res = table.delete(&self.client).await;
-                        match res {
-                            Err(err) => {
-                                return Err(err);
-                            }
-                            Ok(_) => println!("Removed table: {}", table_name),
+
+                if let Ok(table) = table_ref {
+                    // Delete table, since it exists
+                    let res = table.delete(&self.client).await;
+                    match res {
+                        Err(err) => {
+                            return Err(err);
                         }
+                        Ok(_) => println!("Removed table: {}", table_name),
                     }
-                    // Table DNE, do nothing
-                    Err(..) => {}
                 }
             }
         }
@@ -389,7 +383,7 @@ impl GcpBigQueryClient {
                     _ => Value::Null,
                 };
 
-                row_map.insert(name.clone().into(), transformed_value);
+                row_map.insert((*name).into(), transformed_value);
             }
 
             vec_of_maps.push(row_map);
@@ -456,14 +450,14 @@ impl GcpBigQueryClient {
     /// * `value` - value and type
     pub fn bigquery_anyvalue_numeric_type(value: &AnyValue) -> Value {
         match value {
-            AnyValue::Int8(val) => Value::Number(val.clone().into()),
-            AnyValue::Int16(val) => Value::Number(val.clone().into()),
-            AnyValue::Int32(val) => Value::Number(val.clone().into()),
-            AnyValue::Int64(val) => Value::Number(val.clone().into()),
-            AnyValue::UInt8(val) => Value::Number(val.clone().into()),
-            AnyValue::UInt16(val) => Value::Number(val.clone().into()),
-            AnyValue::UInt32(val) => Value::Number(val.clone().into()),
-            AnyValue::UInt64(val) => Value::Number(val.clone().into()),
+            AnyValue::Int8(val) => Value::Number((*val).into()),
+            AnyValue::Int16(val) => Value::Number((*val).into()),
+            AnyValue::Int32(val) => Value::Number((*val).into()),
+            AnyValue::Int64(val) => Value::Number((*val).into()),
+            AnyValue::UInt8(val) => Value::Number((*val).into()),
+            AnyValue::UInt16(val) => Value::Number((*val).into()),
+            AnyValue::UInt32(val) => Value::Number((*val).into()),
+            AnyValue::UInt64(val) => Value::Number((*val).into()),
             _ => Value::Null,
         }
     }

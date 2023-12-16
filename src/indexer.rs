@@ -116,7 +116,7 @@ async fn sync_state_to_db(
     println!("Executing sync_state_to_db for table: {:?}", name);
     info!("Executing datasource insertion / sync...");
     for datasource in db_writers {
-        datasource.write_data(name.as_str(), &csv_writer).await;
+        datasource.write_data(name.as_str(), csv_writer).await;
     }
 
     //  Reset csv writer
@@ -190,7 +190,7 @@ pub async fn init_datasource_writers(
     // Init postgres client (if exists)
     if let Some(postgres_conf) = &indexer_config.postgres {
         let postgres_db_client =
-            init_postgres_db(&postgres_conf, &indexer_config.event_mappings, false)
+            init_postgres_db(postgres_conf, &indexer_config.event_mappings, false)
                 .await
                 .expect("Failed to initialize Postgres client");
         writers.push(Box::new(postgres_db_client));
@@ -199,13 +199,13 @@ pub async fn init_datasource_writers(
     // Init GCP bigquery client (if exists)
     if let Some(bigquery_conf) = &indexer_config.gcp_bigquery {
         let bigquery_db_client =
-            init_gcp_bigquery_db(&bigquery_conf, &indexer_config.event_mappings)
+            init_gcp_bigquery_db(bigquery_conf, &indexer_config.event_mappings)
                 .await
                 .expect("Failed to initialize bigquery client");
         writers.push(Box::new(bigquery_db_client));
     }
 
-    if writers.len() < 1 {
+    if writers.is_empty() {
         panic!("Must have at least one configured indexer datastore to run indexer");
     }
 
@@ -235,7 +235,7 @@ pub async fn init_datasource_writers(
 pub async fn sync(indexer_config: &IndexerConfig) {
     info!("Starting indexer");
     info!("Initializing database writers");
-    let db_writers = init_datasource_writers(&indexer_config).await;
+    let db_writers = init_datasource_writers(indexer_config).await;
 
     let mut csv_writers = create_csv_writers(
         indexer_config.csv_location.as_path(),

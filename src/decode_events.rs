@@ -202,7 +202,7 @@ fn decode_log(log: &Log, abi: &ABIItem) -> Result<DecodedLog, ()> {
 
     let mut topics: Vec<DecodedTopic> = decoded_indexed_topics
         .into_iter()
-        .chain(decoded_non_indexed_data.into_iter())
+        .chain(decoded_non_indexed_data)
         .collect();
 
     topics.sort_by_key(|item| abi.inputs.iter().position(|input| input.name == item.name));

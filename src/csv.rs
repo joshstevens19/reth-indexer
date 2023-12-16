@@ -114,13 +114,11 @@ fn csv_event_columns(abi_item: &ABIItem) -> Vec<String> {
         .map(|input| input.name.clone())
         .collect();
 
-    let columns = columns_prefix
+    columns_prefix
         .into_iter()
         .chain(columns_abi)
         .chain(columns_suffix)
-        .collect();
-
-    columns
+        .collect()
 }
 
 /// A struct representing a CSV writer.

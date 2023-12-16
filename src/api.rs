@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     postgres::{solidity_type_to_db_type, PostgresClient},
-    types::{IndexerConfig, IndexerContractMapping, IndexerPostgresConfig},
+    types::{IndexerConfig, IndexerContractMapping},
 };
 
 #[derive(Debug, serde::Serialize, Deserialize)]
