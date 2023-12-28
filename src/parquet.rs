@@ -11,7 +11,6 @@ use std::{any::Any, collections::HashMap, error::Error, fs, fs::File, path::Path
 pub struct ParquetClient {
     data_directory: String,
     drop_tables: bool,
-    use_pyarrow: bool,
     table_map: HashMap<String, IndexMap<String, String>>,
 }
 
@@ -93,7 +92,6 @@ impl ParquetClient {
         Ok(ParquetClient {
             data_directory: indexer_parquet_config.data_directory.to_string(),
             drop_tables: indexer_parquet_config.drop_tables,
-            use_pyarrow: indexer_parquet_config.use_py_arrow,
             table_map,
         })
     }
@@ -154,13 +152,7 @@ impl ParquetClient {
         match block_boundaries {
             Err(err) => println!("Failed to write to parquet - reason: {:?}", err),
             Ok((min, max)) => {
-                let parquet_file_name = format!("{}___{}_{}", table_name, min, max);
-                let full_path_name = format!(
-                    "{}/{}/{}",
-                    self.data_directory, table_name, parquet_file_name
-                );
-                println!("Writing parquet file: {}", full_path_name);
-
+                let (_, full_path_name) = self.get_parquet_file_name(table_name, min, max);
                 let parquet_file = File::create(full_path_name.as_str());
                 match parquet_file {
                     Err(err) => {
@@ -179,6 +171,16 @@ impl ParquetClient {
                 }
             }
         }
+    }
+
+    fn get_parquet_file_name(&self, table_name: &str, min: i64, max: i64) -> (String, String) {
+        let parquet_file_name = format!("{}___{}_{}", table_name, min, max);
+        let full_path_name = format!(
+            "{}/{}/{}.parquet",
+            self.data_directory, table_name, parquet_file_name
+        );
+        println!("Writing parquet file: {}", full_path_name);
+        (parquet_file_name, full_path_name)
     }
 
     fn get_block_boundaries(&self, dataframe: &DataFrame) -> Result<(i64, i64), PolarsError> {

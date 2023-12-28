@@ -104,9 +104,6 @@ pub struct IndexerParquetConfig {
 
     #[serde(rename = "dataDirectory")]
     pub data_directory: String,
-
-    #[serde(rename = "usePyArrow")]
-    pub use_py_arrow: bool,
 }
 
 #[derive(Debug, Deserialize)]
