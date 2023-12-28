@@ -1,6 +1,6 @@
 # reth-indexer
 
-reth-indexer reads directly from the reth db and indexes the data into traditional and alternative databases / datastores (postgres, GCP bigquery, etc) all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
+reth-indexer reads directly from the reth db and indexes the data into traditional and alternative databases / datastores (postgres, GCP bigquery, parquet, etc) all decoded with a simple config file and no extra setup alongside exposing a API ready to query the data.
 
 <img src="./assets/demo.gif" />
 
@@ -20,9 +20,9 @@ This tool is perfect for all kinds of people from developers, to data anaylsis, 
 
 ## Features
 
-- Creates database tables for you automatically (postgres, gcp biquery, or others)
+- Creates database tables for you automatically (postgres, gcp biquery, parquet, or others)
 - Creates indexes on the tables for you automatically to allow you to query the data fast
-- Can write index to multiple data stores (i.e. postgres, gcp bigquery, etc)
+- Can write index to multiple data stores (i.e. postgres, gcp bigquery, parquet, etc)
 - Indexes any events from the reth node db
 - Supports indexing any events from multiple contracts or all contracts at the same time
 - Supports filtering even on the single input types so allowing you to filter on every element of the event
@@ -255,6 +255,28 @@ GCP bigquery dataset id (i.e. database / schema)
 #### credentialsPath
 
 Path to GCP credentials file (JSON) - this would contain the executing user / account credentials within GCP environment
+
+### parquet - optional (only if writing locally to parquet format)
+
+Holds parquet writer information and settings (written to locally-accessible drive / mount)
+
+
+example:
+
+```json
+"parquet": {
+   "dropTableBeforeSync": true,
+   "dataDirectory": "/path/to/data/sync/root"
+}
+```
+
+#### dropTableBeforeSync - required
+
+if true, will delete the subdirectories for the target tables holding parquet files (if exists).
+
+#### dataDirectory - required
+
+root / base directory. note that each event type indexed will have its own directory within the root directory (dataDirectory)
 
 ### eventMappings
 
