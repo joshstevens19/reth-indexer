@@ -13,7 +13,6 @@ use gcp_bigquery_client::{
     Client,
 };
 use indexmap::IndexMap;
-// use phf::phf_ordered_map;
 use polars::prelude::*;
 use serde_json::Value;
 use std::{any::Any, collections::HashMap};
