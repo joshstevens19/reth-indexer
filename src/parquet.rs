@@ -174,9 +174,9 @@ impl ParquetClient {
     }
 
     fn get_parquet_file_name(&self, table_name: &str, min: i64, max: i64) -> (String, String) {
-        let parquet_file_name = format!("{}___{}_{}", table_name, min, max);
+        let parquet_file_name = format!("{}___{}_{}.parquet", table_name, min, max);
         let full_path_name = format!(
-            "{}/{}/{}.parquet",
+            "{}/{}/{}",
             self.data_directory, table_name, parquet_file_name
         );
         println!("Writing parquet file: {}", full_path_name);
