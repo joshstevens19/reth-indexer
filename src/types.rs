@@ -136,6 +136,7 @@ pub struct IndexerConfig {
     pub gcp_bigquery: Option<IndexerGcpBigQueryConfig>,
 
     /// parquet configuration, if exists
+    #[serde(rename = "parquet", skip_serializing_if = "Option::is_none")]
     pub parquet: Option<IndexerParquetConfig>,
 
     /// The list of contract mappings.
