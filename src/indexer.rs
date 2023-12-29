@@ -17,6 +17,7 @@ use crate::{
     datasource::DatasourceWritable,
     decode_events::{abi_item_to_topic_id, decode_logs, DecodedLog},
     gcp_bigquery::init_gcp_bigquery_db,
+    parquet::init_parquet_db,
     postgres::{generate_event_table_indexes, init_postgres_db, PostgresClient},
     provider::get_reth_factory,
     types::{IndexerConfig, IndexerContractMapping},
@@ -203,6 +204,13 @@ pub async fn init_datasource_writers(
                 .await
                 .expect("Failed to initialize bigquery client");
         writers.push(Box::new(bigquery_db_client));
+    }
+
+    if let Some(parquet_conf) = &indexer_config.parquet {
+        let parquet_client = init_parquet_db(parquet_conf, &indexer_config.event_mappings)
+            .await
+            .expect("Failed to initialize parquet client");
+        writers.push(Box::new(parquet_client));
     }
 
     if writers.is_empty() {
