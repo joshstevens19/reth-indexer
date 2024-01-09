@@ -93,8 +93,7 @@ impl ParquetClient {
                 let table_path = Path::new(table_dir.as_str());
                 if table_path.exists() && table_path.is_dir() {
                     println!("Removing directory / contents: {}", table_dir);
-                    let res = fs::remove_dir_all(table_path);
-                    if let Err(err) = res {
+                    if let Err(err) = fs::remove_dir_all(table_path) {
                         return Err(Box::new(err));
                     }
                 }
@@ -115,10 +114,8 @@ impl ParquetClient {
             let table_path = Path::new(table_dir.as_str());
             if !table_path.exists() {
                 println!("Creating directory: {}", table_name);
-                let res = fs::create_dir(table_path);
-                match res {
-                    Ok(()) => {}
-                    Err(err) => return Err(Box::new(err)),
+                if let Err(err) = fs::create_dir(table_path) {
+                    return Err(Box::new(err));
                 }
             }
         }
