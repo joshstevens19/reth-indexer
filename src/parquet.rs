@@ -33,30 +33,20 @@ pub async fn init_parquet_db(
     let parquet_client = ParquetClient::new(indexer_parquet_config, event_mappings).await?;
 
     if indexer_parquet_config.drop_tables {
-        let res = parquet_client.delete_tables().await;
-        match res {
-            Ok(..) => {}
-            Err(err) => {
-                return Err(ParquetClientError::ParquetOperationError(format!(
-                    "Parquet client operation error: {:?}",
-                    err
-                )))
-            }
+        if let Err(err) = parquet_client.delete_tables().await {
+            return Err(parquet_operation_error(err));
         }
     }
 
-    let res = parquet_client.create_tables().await;
-    match res {
-        Ok(..) => {}
-        Err(err) => {
-            return Err(ParquetClientError::ParquetOperationError(format!(
-                "Parquet client operation error: {:?}",
-                err
-            )))
-        }
+    if let Err(err) = parquet_client.create_tables().await {
+        return Err(parquet_operation_error(err));
     }
 
     Ok(parquet_client)
+}
+
+fn parquet_operation_error(err: Box<dyn Error>) -> ParquetClientError {
+    ParquetClientError::ParquetOperationError(format!("Parquet client operation error: {:?}", err))
 }
 
 impl ParquetClient {
@@ -77,15 +67,11 @@ impl ParquetClient {
         // Check data directory exists - if not, then create!
         let root_data_dir: &Path = Path::new(indexer_parquet_config.data_directory.as_str());
         if !root_data_dir.exists() {
-            let res = fs::create_dir(root_data_dir);
-            match res {
-                Ok(()) => {}
-                Err(err) => {
-                    return Err(ParquetClientError::ParquetOperationError(format!(
-                        "Could not create root dir. err: {}",
-                        err
-                    )))
-                }
+            if let Err(err) = fs::create_dir(root_data_dir) {
+                return Err(ParquetClientError::ParquetOperationError(format!(
+                    "Failed to create data directory: {:?}",
+                    err,
+                )));
             }
         }
 
@@ -108,9 +94,8 @@ impl ParquetClient {
                 if table_path.exists() && table_path.is_dir() {
                     println!("Removing directory / contents: {}", table_dir);
                     let res = fs::remove_dir_all(table_path);
-                    match res {
-                        Ok(()) => {}
-                        Err(err) => return Err(Box::new(err)),
+                    if let Err(err) = res {
+                        return Err(Box::new(err));
                     }
                 }
             }

@@ -58,13 +58,9 @@ pub fn load_table_configs(
                 })
                 .collect();
 
-            let common_column_type_map: IndexMap<String, String> = COMMON_COLUMNS
+            let merged_column_types: IndexMap<String, String> = COMMON_COLUMNS
                 .into_iter()
                 .map(|it| (it.0.to_string(), it.1.to_string()))
-                .collect();
-
-            let merged_column_types: IndexMap<String, String> = common_column_type_map
-                .into_iter()
                 .chain(column_type_map)
                 .collect();
 
