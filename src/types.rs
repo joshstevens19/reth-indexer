@@ -97,7 +97,15 @@ pub struct IndexerGcpBigQueryConfig {
     pub credentials_path: String,
 }
 
-/// Represents the configuration for the Indexer.
+#[derive(Debug, Deserialize)]
+pub struct IndexerParquetConfig {
+    #[serde(rename = "dropTableBeforeSync")]
+    pub drop_tables: bool,
+
+    #[serde(rename = "dataDirectory")]
+    pub data_directory: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
     /// The location of the rethDB.
@@ -126,6 +134,10 @@ pub struct IndexerConfig {
     /// GCP configuration, if exists
     #[serde(rename = "gcpBigQuery", skip_serializing_if = "Option::is_none")]
     pub gcp_bigquery: Option<IndexerGcpBigQueryConfig>,
+
+    /// parquet configuration, if exists
+    #[serde(rename = "parquet", skip_serializing_if = "Option::is_none")]
+    pub parquet: Option<IndexerParquetConfig>,
 
     /// The list of contract mappings.
     #[serde(rename = "eventMappings")]

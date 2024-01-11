@@ -4,6 +4,7 @@ mod datasource;
 mod decode_events;
 mod gcp_bigquery;
 mod indexer;
+mod parquet;
 mod postgres;
 mod provider;
 mod types;
